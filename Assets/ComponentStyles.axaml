@@ -4,10 +4,10 @@
         <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Grid Margin="12,6,12,12">
+                    <Grid Margin="12">
                         <Border Background="{TemplateBinding Background}"
                                 CornerRadius="{TemplateBinding CornerRadius}"
-                                BoxShadow="{StaticResource WindowShadow}"/>
+                                BoxShadow="{DynamicResource WindowShadow}"/>
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
@@ -226,7 +226,7 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="6"/>
-        <Setter Property="BoxShadow" Value="{StaticResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
     </Style>
     <Style Selector="MenuItem Popup Border">
         <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
@@ -234,16 +234,16 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="6"/>
-        <Setter Property="BoxShadow" Value="{StaticResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
     </Style>
     <Style Selector="Border.context-submenu-surface">
-        <Setter Property="Margin" Value="12,6,12,12"/>
+        <Setter Property="Margin" Value="12"/>
         <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="6"/>
-        <Setter Property="BoxShadow" Value="{StaticResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
         <Setter Property="ClipToBounds" Value="False"/>
     </Style>
 
@@ -270,7 +270,7 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
         <Setter Property="Padding" Value="{StaticResource CardPadding}"/>
-        <Setter Property="BoxShadow" Value="{StaticResource ShadowSm}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource ShadowSm}"/>
     </Style>
     <Style Selector="Border.surface">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
@@ -284,7 +284,7 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
         <Setter Property="Padding" Value="6"/>
-        <Setter Property="BoxShadow" Value="{StaticResource ShadowMd}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource ShadowMd}"/>
     </Style>
 
     <Style Selector="TextBlock.heading">

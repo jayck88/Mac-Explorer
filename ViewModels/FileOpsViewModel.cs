@@ -18,6 +18,7 @@ public partial class FileOpsViewModel : ObservableObject
     private readonly IPinnedFolderService? _pinnedFolderService;
     private readonly IFileIndexWriter? _fileIndexWriter;
     private readonly IFileIndex? _fileIndex;
+    private readonly IFileOperationHistoryService? _fileOperationHistoryService;
     private readonly Microsoft.Extensions.Logging.ILogger<FileOpsViewModel>? _logger;
 
     /// <summary>被剪切文件的完整路径集合，用于 UI 半透明显示</summary>
@@ -32,6 +33,7 @@ public partial class FileOpsViewModel : ObservableObject
         IPinnedFolderService? pinnedFolderService = null,
         IFileIndexWriter? fileIndexWriter = null,
         IFileIndex? fileIndex = null,
+        IFileOperationHistoryService? fileOperationHistoryService = null,
         Microsoft.Extensions.Logging.ILogger<FileOpsViewModel>? logger = null)
     {
         _clipboardService = clipboardService;
@@ -42,6 +44,7 @@ public partial class FileOpsViewModel : ObservableObject
         _pinnedFolderService = pinnedFolderService;
         _fileIndexWriter = fileIndexWriter;
         _fileIndex = fileIndex;
+        _fileOperationHistoryService = fileOperationHistoryService;
         _logger = logger;
     }
 
@@ -131,7 +134,13 @@ public partial class FileOpsViewModel : ObservableObject
         {
             var deletedPaths = selectedEntries.Select(e => e.FullPath).ToList();
             foreach (var entry in selectedEntries)
+            {
                 await _fileService.DeleteAsync(entry.FullPath, moveToTrash: true);
+
+                // Record for undo
+                if (_fileOperationHistoryService != null)
+                    await _fileOperationHistoryService.RecordTrashAsync(entry.FullPath, "");
+            }
 
             // Clean up AI analysis data for deleted files
             if (_aiTagService != null)
@@ -170,6 +179,14 @@ public partial class FileOpsViewModel : ObservableObject
         try
         {
             await _fileService.MoveAsync(source.FullPath, targetFolder.FullPath);
+
+            // Record for undo
+            if (_fileOperationHistoryService != null)
+            {
+                var newPath = Path.Combine(targetFolder.FullPath, Path.GetFileName(source.FullPath));
+                await _fileOperationHistoryService.RecordMoveAsync(source.FullPath, newPath);
+            }
+
             _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(source.FullPath) ?? "", targetFolder.FullPath], null);
         }
         catch (Exception ex)
@@ -332,6 +349,10 @@ public partial class FileOpsViewModel : ObservableObject
 
             var dir = Path.GetDirectoryName(oldPath) ?? "";
             var newPath = Path.Combine(dir, newName);
+
+            // Record for undo
+            if (_fileOperationHistoryService != null)
+                await _fileOperationHistoryService.RecordRenameAsync(oldPath, newPath);
 
             if (_aiTagService != null)
                 await _aiTagService.UpdateFilePathAsync(oldPath, newPath);

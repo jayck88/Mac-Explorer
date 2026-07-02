@@ -266,6 +266,25 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     // Cut paths from FileOps
     public HashSet<string> CutPaths => _fileOps.CutPaths;
 
+    // Public access for command palette providers
+    public FileOpsViewModel FileOps => _fileOps;
+
+    // Events triggered by command palette commands (consumed by MainWindow)
+    public event Action? RequestBatchRename;
+    public event Action? RequestRemoteConnection;
+    public event Action? RequestShowTaskPanel;
+
+    public void RaiseRequestBatchRename() => RequestBatchRename?.Invoke();
+    public void RaiseRequestRemoteConnection() => RequestRemoteConnection?.Invoke();
+    public void RaiseRequestShowTaskPanel() => RequestShowTaskPanel?.Invoke();
+
+    // Refresh helper for command palette actions that modify the directory
+    public async Task RefreshAfterCreateAsync(string newName)
+    {
+        await RefreshAsync();
+        PendingSelectFileName = newName;
+    }
+
     public bool IsRestoringNavigation => ScrollBehaviorAfterLoad == ScrollMode.RestoreNavigation;
 
     public FileListViewModel(
@@ -1533,9 +1552,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         actions.Add(new ContextMenuAction { Label = "拷贝", IconSvg = Icons.Copy, ShortcutText = "⌘C", IsQuickAction = true, Execute = () => { CopySelected(); return Task.CompletedTask; } });
         actions.Add(new ContextMenuAction { Label = "剪切", IconSvg = Icons.Cut, ShortcutText = "⌘X", IsQuickAction = true, Execute = () => { CutSelected(); return Task.CompletedTask; } });
 
-        actions.Add(ContextMenuAction.Separator);
-
         actions.Add(new ContextMenuAction { Label = "重命名", IconSvg = Icons.Rename, ShortcutText = "↩", IsQuickAction = true, Execute = () => { _fileOps.RaiseRequestRename(entry); return Task.CompletedTask; } });
+
+        // Batch rename (available when multiple items are selected)
+        if (SelectedEntries.Count > 1)
+        {
+            actions.Add(new ContextMenuAction { Label = "批量重命名", IconSvg = Icons.Rename, Execute = () => { RaiseRequestBatchRename(); return Task.CompletedTask; } });
+        }
+
         actions.Add(new ContextMenuAction
         {
             Label = "删除",
@@ -1566,7 +1590,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             Label = "复制路径",
             IconSvg = Icons.CopyPath,
-            ShortcutText = "⌥⌘C",
+            ShortcutText = "⇧⌘C",
             Execute = () => _clipboardService?.CopyTextAsync(entry.FullPath) ?? Task.CompletedTask
         });
 
@@ -1739,6 +1763,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             Label = "复制路径",
             IconSvg = Icons.CopyPath,
+            ShortcutText = "⇧⌘C",
             Execute = () => _clipboardService?.CopyTextAsync(currentPath) ?? Task.CompletedTask
         });
 
@@ -2216,6 +2241,19 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         StatusText = $"已拷贝 {SelectedEntries.Count} 项";
     }
 
+    public async Task CopyPathAsync()
+    {
+        if (_clipboardService == null) return;
+
+        var path = SelectedEntries.Count == 1
+            ? SelectedEntries[0].FullPath
+            : _navigation.CurrentPath;
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        await _clipboardService.CopyTextAsync(path);
+        StatusText = "已复制路径";
+    }
+
     [RelayCommand]
     public void CutSelected()
     {
@@ -2647,6 +2685,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             if (_topLevelWindow == null) return null;
             var dialog = new PasswordDialog();
+            using var modalBlock = _topLevelWindow is MacExplorer.Views.MainWindow mainWindow
+                ? mainWindow.BlockModalParentInteraction()
+                : null;
             return await dialog.ShowDialogAsync(_topLevelWindow);
         });
     }

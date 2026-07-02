@@ -15,6 +15,15 @@ public partial class WindowTitleBar : UserControl
         set => SetValue(TitleProperty, value);
     }
 
+    public static readonly StyledProperty<Control?> TitleBarContentProperty =
+        AvaloniaProperty.Register<WindowTitleBar, Control?>(nameof(TitleBarContent));
+
+    public Control? TitleBarContent
+    {
+        get => GetValue(TitleBarContentProperty);
+        set => SetValue(TitleBarContentProperty, value);
+    }
+
     public WindowTitleBar()
     {
         InitializeComponent();
@@ -31,6 +40,20 @@ public partial class WindowTitleBar : UserControl
     {
         base.OnAttachedToVisualTree(e);
         UpdateWindowControlAvailability();
+        UpdateTitleTextVisibility();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == TitleBarContentProperty)
+            UpdateTitleTextVisibility();
+    }
+
+    private void UpdateTitleTextVisibility()
+    {
+        if (TitleText is { } text)
+            text.IsVisible = TitleBarContent is null;
     }
 
     private AppWindow? OwnerWindow => TopLevel.GetTopLevel(this) as AppWindow;
@@ -52,6 +75,11 @@ public partial class WindowTitleBar : UserControl
     private void OnDragRegionPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || OwnerWindow is not { } window)
+            return;
+
+        // Only handle drag/maximize when clicking on empty drag area,
+        // not when clicking on interactive content (BreadcrumbBar, buttons, search, etc.)
+        if (e.Source != sender)
             return;
 
         if (e.ClickCount == 2)

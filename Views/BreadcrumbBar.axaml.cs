@@ -44,11 +44,18 @@ public partial class BreadcrumbBar : UserControl
     {
         _activeInput = input;
         PathSuggestionsPopup.PlacementTarget = input;
-        PathSuggestionsSurface.Width = input.Bounds.Width;
         input.Focus();
         if (selectAll)
             input.SelectAll();
-        _ = RefreshSuggestionsAsync(input.Text);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_activeInput != input)
+                return;
+
+            PathSuggestionsPopup.PlacementTarget = input;
+            PathSuggestionsSurface.Width = Math.Max(input.Bounds.Width, input.DesiredSize.Width);
+            _ = RefreshSuggestionsAsync(input.Text);
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnBrowseModeDoubleTapped(object? sender, TappedEventArgs e)
@@ -176,9 +183,11 @@ public partial class BreadcrumbBar : UserControl
         if (token.IsCancellationRequested || _activeInput == null)
             return;
 
+        PathSuggestionsPopup.PlacementTarget = _activeInput;
+        PathSuggestionsSurface.Width = Math.Max(_activeInput.Bounds.Width, _activeInput.DesiredSize.Width);
         PathSuggestionList.ItemsSource = suggestions;
         PathSuggestionList.SelectedIndex = -1;
-        PathSuggestionsPopup.IsOpen = suggestions.Count > 0 && _activeInput.IsVisible;
+        PathSuggestionsPopup.IsOpen = suggestions.Count > 0 && _activeInput.IsVisible && _activeInput.IsKeyboardFocusWithin;
     }
 
     private void CloseSuggestions()
@@ -204,6 +213,7 @@ public partial class BreadcrumbBar : UserControl
 
         if (VirtualPath.IsHomePath(path)
             || VirtualPath.IsRemotePath(path)
+            || ArchivePathHelper.IsArchivePath(path)
             || Directory.Exists(path))
             await ViewModel.NavigateToAsync(path);
     }

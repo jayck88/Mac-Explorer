@@ -30,6 +30,7 @@ public partial class MainWindow : AppWindow
     private readonly IBackgroundTaskManager _taskManager;
     private bool _dialogSyncRunning;
     private bool _initialized;
+    private int _modalBlockDepth;
     private int _previousRunningTaskCount;
     private IServiceScope? _scope;
 
@@ -87,6 +88,13 @@ public partial class MainWindow : AppWindow
 
     private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (IsModalInteractionBlocked)
+        {
+            if (!IsInsideVisual(e.Source as Visual, DialogHost))
+                e.Handled = true;
+            return;
+        }
+
         var properties = e.GetCurrentPoint(this).Properties;
         if (properties.IsXButton1Pressed && _vm?.FileList.CanGoBack == true)
         {
@@ -130,8 +138,41 @@ public partial class MainWindow : AppWindow
         return false;
     }
 
+    private static bool IsInsideVisual(Visual? visual, Visual? target)
+    {
+        if (target == null) return false;
+        for (; visual != null; visual = visual.GetVisualParent())
+            if (ReferenceEquals(visual, target))
+                return true;
+        return false;
+    }
+
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (IsModalInteractionBlocked)
+        {
+            if (!IsInsideVisual(e.Source as Visual, DialogHost))
+                e.Handled = true;
+            return;
+        }
+
+        // ⌘K: open command palette (focus omnibox)
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.K)
+        {
+            e.Handled = true;
+            BreadcrumbControl.FocusPathInput();
+            return;
+        }
+
+        // ⌘Z: undo last file operation
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.Z
+            && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            e.Handled = true;
+            _ = UndoLastOperationAsync();
+            return;
+        }
+
         if (e.KeyModifiers.HasFlag(KeyModifiers.Meta) && e.Key == Key.L)
         {
             e.Handled = true;
@@ -141,6 +182,53 @@ public partial class MainWindow : AppWindow
 
         if (FileListControl.IsVisible)
             FileListControl.TryHandleFileShortcut(e);
+    }
+
+    public IDisposable BlockModalParentInteraction()
+    {
+        _modalBlockDepth++;
+        UpdateModalInteractionBlock();
+        return new ModalInteractionScope(this);
+    }
+
+    private void ReleaseModalParentInteraction()
+    {
+        if (_modalBlockDepth > 0)
+            _modalBlockDepth--;
+        UpdateModalInteractionBlock();
+    }
+
+    private void UpdateModalInteractionBlock()
+    {
+        var blocked = _modalBlockDepth > 0;
+        IsModalInteractionBlocked = blocked;
+        ModalInteractionOverlay.IsVisible = blocked;
+        ModalInteractionOverlay.IsHitTestVisible = blocked;
+
+        if (blocked)
+        {
+            ToolbarControl.CloseDropdowns();
+            FileListControl.DismissContextMenu();
+        }
+    }
+
+    private sealed class ModalInteractionScope : IDisposable
+    {
+        private MainWindow? _window;
+
+        public ModalInteractionScope(MainWindow window)
+        {
+            _window = window;
+        }
+
+        public void Dispose()
+        {
+            var window = _window;
+            if (window == null) return;
+
+            _window = null;
+            window.ReleaseModalParentInteraction();
+        }
     }
 
     public void AttachScope(IServiceScope scope) => _scope = scope;
@@ -179,6 +267,7 @@ public partial class MainWindow : AppWindow
             UpdateContentVisibility(vm);
             UpdateInfoPanelVisibility(vm);
             UpdateTaskButton();
+            WireCommandPaletteEvents(vm.FileList);
         }
         else
         {
@@ -227,6 +316,67 @@ public partial class MainWindow : AppWindow
         _navigationBridge.Unregister(vm);
         _directoryChangeNotifier.Unsubscribe(vm);
         _dragDropBridge.Unregister(vm);
+        vm.RequestBatchRename -= OnRequestBatchRename;
+        vm.RequestRemoteConnection -= OnRequestRemoteConnection;
+        vm.RequestShowTaskPanel -= OnRequestShowTaskPanel;
+    }
+
+    private void WireCommandPaletteEvents(FileListViewModel vm)
+    {
+        vm.RequestBatchRename += OnRequestBatchRename;
+        vm.RequestRemoteConnection += OnRequestRemoteConnection;
+        vm.RequestShowTaskPanel += OnRequestShowTaskPanel;
+    }
+
+    private void OnRequestBatchRename()
+    {
+        _ = OpenBatchRenameDialogAsync();
+    }
+
+    private void OnRequestRemoteConnection()
+    {
+        _ = OpenRemoteConnectionDialogAsync();
+    }
+
+    private void OnRequestShowTaskPanel()
+    {
+        if (!TaskOverlayPanel.IsVisible)
+            ToggleTaskPanel();
+    }
+
+    private async Task OpenBatchRenameDialogAsync()
+    {
+        if (_vm?.FileList == null) return;
+        var dialog = new Views.Dialogs.BatchRenameDialog();
+        using var modalBlock = BlockModalParentInteraction();
+        await dialog.ShowDialogAsync(this, _vm.FileList);
+    }
+
+    private async Task OpenRemoteConnectionDialogAsync()
+    {
+        if (_vm?.FileList == null) return;
+
+        var dialog = new RemoteConnectionDialog();
+        using var modalBlock = BlockModalParentInteraction();
+        var result = await dialog.ShowDialog<RemoteServerInfo?>(this);
+        if (result != null && dialog.Connected)
+            await _vm.FileList.ConnectToServerAsync(result);
+    }
+
+    private async Task UndoLastOperationAsync()
+    {
+        var historyService = App.Services.GetService<IFileOperationHistoryService>();
+        if (historyService == null) return;
+        var undone = await historyService.UndoLastAsync();
+        if (undone && _vm?.FileList != null)
+        {
+            _vm.FileList.StatusText = "已撤销";
+            await _vm.FileList.RefreshAsync();
+        }
+        else if (!undone && _vm?.FileList != null)
+        {
+            _vm.FileList.StatusText = "没有可撤销的操作";
+        }
     }
 
     private async void OnOpened(object? sender, EventArgs e)
@@ -305,6 +455,7 @@ public partial class MainWindow : AppWindow
             else if (vm.IsCompressDialogVisible && vm.PendingCompressOptions != null)
             {
                 var dialog = new CompressDialog();
+                using var modalBlock = BlockModalParentInteraction();
                 var result = await dialog.ShowDialogAsync(this, vm.PendingCompressOptions);
                 if (result != null) vm.ConfirmCompress(result);
                 else vm.CancelCompressDialog();
@@ -317,7 +468,10 @@ public partial class MainWindow : AppWindow
     }
 
     private async Task<bool> ShowConfirmationAsync(string title, string message, string confirmText)
-        => await DialogHost.ShowConfirmationAsync(title, message, confirmText);
+    {
+        using var modalBlock = BlockModalParentInteraction();
+        return await DialogHost.ShowConfirmationAsync(title, message, confirmText);
+    }
 
     private static string BuildConflictMessage(IReadOnlyList<string> names)
     {
@@ -495,6 +649,12 @@ public partial class MainWindow : AppWindow
             TaskItemsPanel.Children.Add(CreateCompactTaskRow(task));
     }
 
+    private static bool IsUndoableTaskKind(BackgroundTaskKind kind)
+        => kind is BackgroundTaskKind.Copy
+            or BackgroundTaskKind.Move
+            or BackgroundTaskKind.Delete
+            or BackgroundTaskKind.BatchRename;
+
     private Control CreateCompactTaskRow(BackgroundTaskInfo task)
     {
         var row = new Border();
@@ -505,8 +665,10 @@ public partial class MainWindow : AppWindow
         grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        if (task.State == BackgroundTaskState.Running)
+        if (task.State == BackgroundTaskState.Running
+            || (task.State == BackgroundTaskState.Failed && !string.IsNullOrWhiteSpace(task.ErrorMessage)))
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
         // State dot
@@ -517,6 +679,7 @@ public partial class MainWindow : AppWindow
             BackgroundTaskState.Running => "running",
             BackgroundTaskState.Completed => "completed",
             BackgroundTaskState.Failed => "failed",
+            BackgroundTaskState.Cancelled => "failed",
             _ => "running"
         });
         Grid.SetColumn(dot, 0);
@@ -534,7 +697,7 @@ public partial class MainWindow : AppWindow
         Grid.SetRow(label, 0);
         grid.Children.Add(label);
 
-        // Status (running: %, completed/failed: text)
+        // Status (running: %, completed/failed/cancelled: text)
         var statusText = new TextBlock
         {
             Text = task.State switch
@@ -542,6 +705,7 @@ public partial class MainWindow : AppWindow
                 BackgroundTaskState.Running => $"{task.Progress:F0}%",
                 BackgroundTaskState.Completed => "已完成",
                 BackgroundTaskState.Failed => "失败",
+                BackgroundTaskState.Cancelled => "已取消",
                 _ => ""
             },
             TextAlignment = TextAlignment.Right
@@ -551,9 +715,69 @@ public partial class MainWindow : AppWindow
         Grid.SetRow(statusText, 0);
         grid.Children.Add(statusText);
 
-        // Close button
-        var closeBtn = CreateCompactCloseButton(task);
-        Grid.SetColumn(closeBtn, 3);
+        // Retry button for failed tasks with retry action
+        if (task.State == BackgroundTaskState.Failed && task.CanRetry)
+        {
+            var retryBtn = new Button
+            {
+                Content = new PathIcon
+                {
+                    Data = Geometry.Parse(Assets.Icons.Refresh),
+                    Width = 10,
+                    Height = 10
+                }
+            };
+            retryBtn.Classes.Add("ghost");
+            retryBtn.Classes.Add("task-row-close");
+            ToolTip.SetTip(retryBtn, "重试");
+            retryBtn.Click += (_, _) => _taskManager.RetryTask(task.Id);
+            Grid.SetColumn(retryBtn, 3);
+            Grid.SetRow(retryBtn, 0);
+            grid.Children.Add(retryBtn);
+        }
+        else if (task.State == BackgroundTaskState.Completed
+                 && IsUndoableTaskKind(task.Kind))
+        {
+            var historyService = App.Services.GetService<IFileOperationHistoryService>();
+            if (historyService != null && historyService.CanUndo)
+            {
+                var undoBtn = new Button
+                {
+                    Content = new TextBlock { Text = "撤销", FontSize = 10 }
+                };
+                undoBtn.Classes.Add("ghost");
+                undoBtn.Classes.Add("task-row-close");
+                ToolTip.SetTip(undoBtn, "撤销此操作");
+                undoBtn.Click += async (_, _) =>
+                {
+                    await historyService.UndoLastAsync();
+                    if (_vm?.FileList != null)
+                        _vm.FileList.StatusText = "已撤销";
+                };
+                Grid.SetColumn(undoBtn, 3);
+                Grid.SetRow(undoBtn, 0);
+                grid.Children.Add(undoBtn);
+            }
+            else
+            {
+                var spacer = new Border { Width = 0 };
+                Grid.SetColumn(spacer, 3);
+                Grid.SetRow(spacer, 0);
+                grid.Children.Add(spacer);
+            }
+        }
+        else
+        {
+            // Spacer for consistent layout
+            var spacer = new Border { Width = 0 };
+            Grid.SetColumn(spacer, 3);
+            Grid.SetRow(spacer, 0);
+            grid.Children.Add(spacer);
+        }
+
+        // Close/Cancel button
+        var closeBtn = CreateCompactActionButton(task);
+        Grid.SetColumn(closeBtn, 4);
         Grid.SetRow(closeBtn, 0);
         grid.Children.Add(closeBtn);
 
@@ -563,7 +787,7 @@ public partial class MainWindow : AppWindow
             var progress = new ProgressBar { Minimum = 0, Maximum = 100, Value = task.Progress };
             progress.Classes.Add("task-mini");
             Grid.SetColumn(progress, 1);
-            Grid.SetColumnSpan(progress, 3);
+            Grid.SetColumnSpan(progress, 4);
             Grid.SetRow(progress, 1);
             grid.Children.Add(progress);
         }
@@ -578,7 +802,7 @@ public partial class MainWindow : AppWindow
                 Foreground = Brush.Parse("#E5484D")
             };
             Grid.SetColumn(errorText, 1);
-            Grid.SetColumnSpan(errorText, 3);
+            Grid.SetColumnSpan(errorText, 4);
             Grid.SetRow(errorText, 1);
             grid.Children.Add(errorText);
         }
@@ -587,7 +811,7 @@ public partial class MainWindow : AppWindow
         return row;
     }
 
-    private Button CreateCompactCloseButton(BackgroundTaskInfo task)
+    private Button CreateCompactActionButton(BackgroundTaskInfo task)
     {
         var button = new Button
         {
@@ -600,13 +824,27 @@ public partial class MainWindow : AppWindow
         };
         button.Classes.Add("ghost");
         button.Classes.Add("task-row-close");
-        ToolTip.SetTip(button, task.State == BackgroundTaskState.Running ? "取消任务" : "移除任务");
-        button.Click += (_, _) =>
+
+        if (task.State == BackgroundTaskState.Running && task.CanCancel)
         {
-            if (task.State == BackgroundTaskState.Running)
+            ToolTip.SetTip(button, "取消任务");
+            button.Click += (_, _) =>
+            {
                 task.Cts.Cancel();
-            _taskManager.RemoveTask(task.Id);
-        };
+                _taskManager.CancelTask(task.Id);
+            };
+        }
+        else
+        {
+            ToolTip.SetTip(button, "移除任务");
+            button.Click += (_, _) =>
+            {
+                if (task.State == BackgroundTaskState.Running)
+                    task.Cts.Cancel();
+                _taskManager.RemoveTask(task.Id);
+            };
+        }
+
         return button;
     }
 
@@ -814,20 +1052,38 @@ public partial class MainWindow : AppWindow
 
     public void OpenSettings()
     {
-        if (_settingsDialog == null)
-        {
-            _settingsDialog = new SettingsDialog();
-            _settingsDialog.DataContext = _vm?.FileList;
-            _settingsDialog.Closed += (_, _) => _settingsDialog = null;
-        }
+        _ = OpenSettingsAsync();
+    }
 
-        if (!_settingsDialog.IsVisible)
-        {
-            _settingsDialog.Show(this);
-        }
-        else
+    private async Task OpenSettingsAsync()
+    {
+        if (_settingsDialog?.IsVisible == true)
         {
             _settingsDialog.Activate();
+            return;
+        }
+
+        var dialog = new SettingsDialog
+        {
+            DataContext = _vm?.FileList
+        };
+
+        _settingsDialog = dialog;
+        dialog.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_settingsDialog, dialog))
+                _settingsDialog = null;
+        };
+
+        using var modalBlock = BlockModalParentInteraction();
+        try
+        {
+            await dialog.ShowDialog(this);
+        }
+        finally
+        {
+            if (ReferenceEquals(_settingsDialog, dialog))
+                _settingsDialog = null;
         }
     }
 }

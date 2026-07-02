@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -14,13 +15,23 @@ namespace MacExplorer.Views;
 
 public partial class FinderToolbar : UserControl
 {
+    private FileListViewModel? _subscribedViewModel;
+
     // Callback to open settings dialog via MainWindow
     public Action? OpenSettingsCallback { get; set; }
 
     public FinderToolbar()
     {
         InitializeComponent();
-        AttachedToVisualTree += (_, _) => _ = UpdateOfficeTemplateVisibilityAsync();
+        DataContextChanged += OnDataContextChanged;
+        SubscribeToViewModel(ViewModel);
+        SyncViewModeToggles();
+        AttachedToVisualTree += (_, _) =>
+        {
+            _ = UpdateOfficeTemplateVisibilityAsync();
+            SyncViewModeToggles();
+        };
+        DetachedFromVisualTree += (_, _) => SubscribeToViewModel(null);
     }
 
     private async Task UpdateOfficeTemplateVisibilityAsync()
@@ -86,8 +97,49 @@ public partial class FinderToolbar : UserControl
     private async void PasteItems(object? sender, RoutedEventArgs e) { if (ViewModel != null) await ViewModel.PasteAsync(); }
     private void DeleteSelected(object? sender, RoutedEventArgs e) => ViewModel?.ShowDeleteConfirmDialog();
 
-    private void ToggleGridView(object? sender, RoutedEventArgs e) => ViewModel?.SetViewMode(ViewMode.Grid);
-    private void ToggleListView(object? sender, RoutedEventArgs e) => ViewModel?.SetViewMode(ViewMode.List);
+    private void ToggleGridView(object? sender, RoutedEventArgs e)
+    {
+        ViewModel?.SetViewMode(ViewMode.Grid);
+        SyncViewModeToggles();
+    }
+
+    private void ToggleListView(object? sender, RoutedEventArgs e)
+    {
+        ViewModel?.SetViewMode(ViewMode.List);
+        SyncViewModeToggles();
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        SubscribeToViewModel(ViewModel);
+        SyncViewModeToggles();
+    }
+
+    private void SubscribeToViewModel(FileListViewModel? viewModel)
+    {
+        if (ReferenceEquals(_subscribedViewModel, viewModel)) return;
+
+        if (_subscribedViewModel != null)
+            _subscribedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+
+        _subscribedViewModel = viewModel;
+
+        if (_subscribedViewModel != null)
+            _subscribedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(FileListViewModel.ViewMode))
+            Dispatcher.UIThread.Post(SyncViewModeToggles);
+    }
+
+    private void SyncViewModeToggles()
+    {
+        var viewMode = ViewModel?.ViewMode;
+        GridViewToggle.IsChecked = viewMode == ViewMode.Grid;
+        ListViewToggle.IsChecked = viewMode == ViewMode.List;
+    }
 
     private void ToggleSortDirection(object? sender, RoutedEventArgs e)
     {
@@ -191,10 +243,27 @@ public partial class FinderToolbar : UserControl
         if (topLevel is not Window window) return;
 
         var dialog = new RemoteConnectionDialog();
+        using var modalBlock = window is MainWindow mainWindow
+            ? mainWindow.BlockModalParentInteraction()
+            : null;
         var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
         if (result != null && dialog.Connected && ViewModel != null)
         {
             await ViewModel.ConnectToServerAsync(result);
         }
+    }
+
+    private async void OnBatchRename(object? sender, RoutedEventArgs e)
+    {
+        MoreDropdown.IsOpen = false;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is not Window window || ViewModel == null) return;
+
+        var dialog = new BatchRenameDialog();
+        using var modalBlock = window is MainWindow mainWindow
+            ? mainWindow.BlockModalParentInteraction()
+            : null;
+        await dialog.ShowDialogAsync(window, ViewModel);
     }
 }

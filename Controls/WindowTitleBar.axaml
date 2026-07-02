@@ -54,7 +54,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+    <Grid ColumnDefinitions="Auto,*" Background="Transparent">
         <Border x:Name="WindowControlsReserve" Grid.Column="0" Padding="14,0,12,0"
                 VerticalAlignment="Stretch">
             <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="6"
@@ -85,16 +85,16 @@
 
         <Border x:Name="DragRegion" Grid.Column="1" Background="Transparent"
                 PointerPressed="OnDragRegionPressed">
-            <TextBlock Text="{Binding Title, ElementName=TitleBarRoot}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       FontSize="{StaticResource FontSizeSm}" FontWeight="Medium"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       IsHitTestVisible="False"/>
+            <Panel>
+                <TextBlock x:Name="TitleText" Text="{Binding Title, ElementName=TitleBarRoot}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontSize="{StaticResource FontSizeSm}" FontWeight="Medium"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           IsHitTestVisible="False"/>
+                <ContentPresenter Content="{Binding #TitleBarRoot.TitleBarContent}"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Center"/>
+            </Panel>
         </Border>
-
-        <Border Grid.Column="2"
-                Width="{Binding Bounds.Width, ElementName=WindowControlsReserve}"
-                Background="Transparent"
-                PointerPressed="OnDragRegionPressed"/>
     </Grid>
 </UserControl>

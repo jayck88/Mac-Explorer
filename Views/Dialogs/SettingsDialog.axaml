@@ -87,7 +87,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource ColorBorderPrimary}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="BoxShadow" Value="{StaticResource ShadowSm}"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource ShadowSm}"/>
             <Setter Property="ClipToBounds" Value="True"/>
         </Style>
 
@@ -144,7 +144,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="22,20"/>
-            <Setter Property="BoxShadow" Value="{StaticResource ShadowSm}"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource ShadowSm}"/>
         </Style>
 
         <Style Selector="ToggleSwitch.settings-toggle">

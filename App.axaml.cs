@@ -29,6 +29,31 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         Services = ConfigureServices();
         Services.GetRequiredService<IThemeService>().Initialize();
+        RegisterOmniboxProviders();
+
+        // Catch UI-thread exceptions so a single handler error never crashes the app.
+        Dispatcher.UIThread.UnhandledException += OnDispatcherUnhandledException;
+    }
+
+    private static void OnDispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        var logPath = Path.Combine(AppContext.BaseDirectory, "macexplorer_crash.log");
+        try
+        {
+            File.AppendAllText(logPath,
+                $"[{DateTime.Now:HH:mm:ss.fff}] UI Thread Exception: {e.Exception}\n\n");
+        }
+        catch { }
+        e.Handled = true;
+    }
+
+    private static void RegisterOmniboxProviders()
+    {
+        var frequentFolderService = Services.GetService<IFrequentFolderService>();
+        OmniboxService.RegisterProvider(new PathOmniboxProvider());
+        OmniboxService.RegisterProvider(new CommandOmniboxProvider());
+        OmniboxService.RegisterProvider(new SearchOmniboxProvider());
+        OmniboxService.RegisterProvider(new RecentDirectoryOmniboxProvider(frequentFolderService));
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -154,6 +179,17 @@ public partial class App : Application
         services.AddSingleton<IPinnedFolderService>(sp => new Services.Impl.PinnedFolderService(sp.GetRequiredService<DatabaseConnectionFactory>()));
         services.AddSingleton<IArchiveService, Services.Impl.ArchiveService>();
         services.AddSingleton<IBackgroundTaskManager>(sp => new Services.Impl.BackgroundTaskManager(sp.GetService<ILoggerFactory>()));
+        services.AddSingleton<IBatchRenameService>(sp => new Services.Impl.BatchRenameService(
+            sp.GetRequiredService<IFileService>(),
+            sp.GetService<IFileIndexWriter>(),
+            sp.GetService<IAiTagService>(),
+            sp.GetService<IPinnedFolderService>(),
+            sp.GetService<IDirectoryChangeNotifier>(),
+            sp.GetService<ILogger<Services.Impl.BatchRenameService>>()));
+        services.AddSingleton<IFileOperationHistoryService>(sp => new Services.Impl.FileOperationHistoryService(
+            sp.GetRequiredService<IFileService>(),
+            sp.GetService<IDirectoryChangeNotifier>(),
+            sp.GetService<ILogger<Services.Impl.FileOperationHistoryService>>()));
         services.AddSingleton<NavigationBridge>();
         services.AddSingleton<IAiTagService>(sp => new Services.Impl.AiTagService(sp.GetRequiredService<DatabaseConnectionFactory>(), sp.GetService<ILoggerFactory>()));
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();

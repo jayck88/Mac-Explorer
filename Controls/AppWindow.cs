@@ -24,6 +24,24 @@ public class AppWindow : Window
     private IPointer? _resizePointer;
     private IDisposable? _resizeTimer;
 
+    public static readonly StyledProperty<Control?> TitleBarContentProperty =
+        AvaloniaProperty.Register<AppWindow, Control?>(nameof(TitleBarContent));
+
+    public static readonly StyledProperty<bool> IsModalInteractionBlockedProperty =
+        AvaloniaProperty.Register<AppWindow, bool>(nameof(IsModalInteractionBlocked));
+
+    public Control? TitleBarContent
+    {
+        get => GetValue(TitleBarContentProperty);
+        set => SetValue(TitleBarContentProperty, value);
+    }
+
+    public bool IsModalInteractionBlocked
+    {
+        get => GetValue(IsModalInteractionBlockedProperty);
+        set => SetValue(IsModalInteractionBlockedProperty, value);
+    }
+
     public AppWindow()
     {
         WindowDecorations = WindowDecorations.None;
@@ -69,10 +87,15 @@ public class AppWindow : Window
         base.OnPropertyChanged(change);
         if (change.Property == WindowStateProperty)
             PseudoClasses.Set(":maximized", WindowState is WindowState.Maximized or WindowState.FullScreen);
+        else if (change.Property == IsModalInteractionBlockedProperty)
+            PseudoClasses.Set(":modal-blocked", IsModalInteractionBlocked);
     }
 
     private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (IsModalInteractionBlocked)
+            return;
+
         if (!CanResize || WindowState != WindowState.Normal)
             return;
 
@@ -88,6 +111,9 @@ public class AppWindow : Window
 
     public void StartResizeDrag(WindowEdge edge, PointerPressedEventArgs e)
     {
+        if (IsModalInteractionBlocked)
+            return;
+
         if (!CanResize || WindowState != WindowState.Normal)
             return;
 

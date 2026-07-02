@@ -13,9 +13,58 @@
         Width="1400" Height="900"
         MinWidth="1400" MinHeight="900">
 
+    <controls:AppWindow.TitleBarContent>
+        <Grid ColumnDefinitions="*,Auto,*" Margin="8,0" VerticalAlignment="Center">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left">
+                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="后退 ⌘[" Click="NavigateBack"
+                        IsEnabled="{Binding FileList.CanGoBack}">
+                    <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
+                </Button>
+                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="前进 ⌘]" Click="NavigateForward"
+                        IsEnabled="{Binding FileList.CanGoForward}">
+                    <PathIcon Data="{x:Static icons:Icons.Forward}" Width="14" Height="14"/>
+                </Button>
+                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="上级目录 ⌘↑" Click="NavigateUp"
+                        IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                    <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
+                </Button>
+                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="刷新 ⌘R" Click="RefreshView">
+                    <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
+                </Button>
+            </StackPanel>
+
+            <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
+                                 DataContext="{Binding FileList}"
+                                 HorizontalAlignment="Center" MaxWidth="500" MinWidth="500"
+                                 VerticalAlignment="Center"/>
+
+            <!-- Search -->
+            <Border Grid.Column="2" Classes="search-bar"
+                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Grid ColumnDefinitions="Auto,*,Auto" >
+                    <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                              Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
+                              Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBox Grid.Column="1" x:Name="SearchBox"
+                             Classes="search-input omnibox-input"
+                             PlaceholderText="搜索..."
+                             TextChanged="OnSearchTextChanged"
+                             KeyDown="OnSearchKeyDown"/>
+                    <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
+                            Classes="ghost close-btn search-clear-btn"
+                            VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Center"
+                            Width="20" Height="20" Padding="0" Background="Transparent" FontSize="11"
+                            Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
+                            Click="ClearSearch"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </controls:AppWindow.TitleBarContent>
+
     <Grid>
     <Border x:Name="RootLayout" CornerRadius="0">
-        <Grid ColumnDefinitions="260,*" Margin="8">
+        <Grid ColumnDefinitions="260,*" Margin="8 0 8 8">
             <!-- Left: Sidebar (full height) — Liquid Glass -->
             <controls:SurfaceCard Grid.Column="0" CornerRadius="16" Padding="0"
                                        Margin="0,0,4,0">
@@ -38,66 +87,14 @@
                 </controls:SurfaceCard.Content>
             </controls:SurfaceCard>
 
-            <!-- Right: Navbar + Toolbar + Content -->
+            <!-- Right: Toolbar + Content -->
             <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="4,0,0,0">
-                <!-- Row 0: Navigation bar + Toolbar — single Liquid Glass card -->
+                <!-- Row 0: Toolbar — Liquid Glass card -->
                 <controls:SurfaceCard Grid.Row="0" CornerRadius="14" Padding="0"
                                            Margin="0,0,0,4">
                     <controls:SurfaceCard.Content>
                         <Border CornerRadius="14" ClipToBounds="True">
-                        <Grid RowDefinitions="Auto,Auto">
-                            <!-- Navigation bar row -->
-                            <Border Grid.Row="0" Height="40">
-                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="8,0" VerticalAlignment="Bottom">
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
-                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="后退 ⌘[" Click="NavigateBack"
-                                                IsEnabled="{Binding FileList.CanGoBack}">
-                                            <PathIcon Data="{x:Static icons:Icons.Back}" Width="14" Height="14"/>
-                                        </Button>
-                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="前进 ⌘]" Click="NavigateForward"
-                                                IsEnabled="{Binding FileList.CanGoForward}">
-                                            <PathIcon Data="{x:Static icons:Icons.Forward}" Width="14" Height="14"/>
-                                        </Button>
-                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="上级目录 ⌘↑" Click="NavigateUp"
-                                                IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
-                                            <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
-                                        </Button>
-                                        <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="刷新 ⌘R" Click="RefreshView">
-                                            <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
-                                        </Button>
-                                    </StackPanel>
-
-                                    <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
-                                                         DataContext="{Binding FileList}"
-                                                         Margin="8,0" VerticalAlignment="Center"/>
-
-                                    <!-- Search -->
-                                    <Border Grid.Column="2" Classes="search-bar"
-                                            VerticalAlignment="Center" Margin="6,0,0,0">
-                                        <Grid ColumnDefinitions="Auto,*,Auto">
-                                            <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
-                                                      Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                      Foreground="{DynamicResource TextMutedBrush}"/>
-                                            <TextBox Grid.Column="1" x:Name="SearchBox"
-                                                     Classes="search-input omnibox-input"
-                                                     PlaceholderText="搜索..."
-                                                     TextChanged="OnSearchTextChanged"
-                                                     KeyDown="OnSearchKeyDown"/>
-                                            <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
-                                                    Classes="ghost close-btn search-clear-btn"
-                                                    VerticalContentAlignment="Center"
-                                                    HorizontalContentAlignment="Center"
-                                                    Width="20" Height="20" Padding="0" Background="Transparent" FontSize="11"
-                                                    Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
-                                                    Click="ClearSearch"/>
-                                        </Grid>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                            
-                            <!-- Toolbar row -->
-                            <local:FinderToolbar Grid.Row="1" x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
-                        </Grid>
+                            <local:FinderToolbar x:Name="ToolbarControl" DataContext="{Binding FileList}"/>
                         </Border>
                     </controls:SurfaceCard.Content>
                 </controls:SurfaceCard>
@@ -177,11 +174,11 @@
             <TranslateTransform X="380" Y="0"/>
         </Border.RenderTransform>
         <!-- Outer Grid with margin to make room for shadow (same pattern as ContextMenu template) -->
-        <Grid Margin="12,6,12,12">
+        <Grid Margin="12">
             <!-- Shadow layer — full-size, not clipped -->
             <Border Background="{DynamicResource GlassMenuBg}"
                     CornerRadius="12"
-                    BoxShadow="{StaticResource WindowShadow}"/>
+                    BoxShadow="{DynamicResource WindowShadow}"/>
             <!-- Content layer — clipped for rounded corners -->
             <Border Background="{DynamicResource GlassMenuBg}"
                     CornerRadius="12"
@@ -225,8 +222,12 @@
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
-    </Border>
-    <controls:DialogHost x:Name="DialogHost"/>
-    </Grid>
-</controls:AppWindow>
+	        </Grid>
+	    </Border>
+	    <Border x:Name="ModalInteractionOverlay"
+	            IsVisible="False"
+	            Background="Transparent"
+	            IsHitTestVisible="True"/>
+	    <controls:DialogHost x:Name="DialogHost"/>
+	    </Grid>
+	</controls:AppWindow>

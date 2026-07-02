@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace MacExplorer.Controls;
 
@@ -12,6 +14,8 @@ public partial class DialogHost : UserControl
     public DialogHost()
     {
         InitializeComponent();
+        AddHandler(PointerPressedEvent, OnPreviewPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, OnPreviewPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
         CancelButton.Click += (_, _) => Complete(false);
         ConfirmButton.Click += (_, _) => Complete(true);
     }
@@ -44,7 +48,32 @@ public partial class DialogHost : UserControl
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         e.Handled = true;
-        Complete(false);
+    }
+
+    private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!ShouldBlockOutsideDialogPointer(e.Source as Visual)) return;
+
+        e.Handled = true;
+        ConfirmButton.Focus();
+    }
+
+    private void OnPreviewPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!ShouldBlockOutsideDialogPointer(e.Source as Visual)) return;
+
+        e.Handled = true;
+    }
+
+    private bool ShouldBlockOutsideDialogPointer(Visual? source)
+        => IsVisible && !IsInsideVisual(source, DialogCard);
+
+    private static bool IsInsideVisual(Visual? visual, Visual target)
+    {
+        for (; visual != null; visual = visual.GetVisualParent())
+            if (ReferenceEquals(visual, target))
+                return true;
+        return false;
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

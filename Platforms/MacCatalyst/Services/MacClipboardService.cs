@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using Avalonia.Threading;
 using MacExplorer.Models;
 using MacExplorer.Services;
 
@@ -21,19 +23,77 @@ public class MacClipboardService : IClipboardService
 
     public async Task CopyTextAsync(string text)
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            var copied = await Dispatcher.UIThread.InvokeAsync(() => TryWriteTextToPasteboard(text));
+            if (copied)
+                return;
+        }
+
+        await CopyTextWithPbcopyAsync(text).ConfigureAwait(false);
+    }
+
+    private static bool TryWriteTextToPasteboard(string text)
+    {
+        try
+        {
+            dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", 1);
+
+            var pasteboardClass = objc_getClass("NSPasteboard");
+            if (pasteboardClass == IntPtr.Zero)
+                return false;
+
+            var pasteboard = Send(pasteboardClass, "generalPasteboard");
+            if (pasteboard == IntPtr.Zero)
+                return false;
+
+            Send(pasteboard, "clearContents");
+            var value = CreateString(text);
+            var textTypes = new[]
+            {
+                "public.utf8-plain-text",
+                "public.plain-text",
+                "public.text",
+                "NSStringPboardType"
+            };
+
+            var copied = false;
+            foreach (var type in textTypes)
+                copied |= SendBool(pasteboard, "setString:forType:", value, CreateString(type));
+
+            return copied;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task CopyTextWithPbcopyAsync(string text)
+    {
         var startInfo = new ProcessStartInfo("/usr/bin/pbcopy")
         {
             CreateNoWindow = true,
+            RedirectStandardError = true,
             RedirectStandardInput = true,
             UseShellExecute = false
         };
+
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("无法访问系统剪贴板");
+
         await process.StandardInput.WriteAsync(text);
         process.StandardInput.Close();
+        var errorTask = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
+        var error = (await errorTask).Trim();
         if (process.ExitCode != 0)
-            throw new InvalidOperationException("复制到系统剪贴板失败");
+        {
+            var message = string.IsNullOrWhiteSpace(error)
+                ? "复制到系统剪贴板失败"
+                : $"复制到系统剪贴板失败：{error}";
+            throw new InvalidOperationException(message);
+        }
     }
 
     public Task PasteFilesAsync(string targetDirectory) => Task.CompletedTask;
@@ -105,6 +165,11 @@ if (!ok) {
   throw new Error('Failed to write file URLs to NSPasteboard');
 }
 pasteboard.setPropertyListForType(filenames, 'NSFilenamesPboardType');
+const plainText = items.map(item => item.Path).join('\n');
+pasteboard.setStringForType(plainText, 'public.utf8-plain-text');
+pasteboard.setStringForType(plainText, 'public.plain-text');
+pasteboard.setStringForType(plainText, 'public.text');
+pasteboard.setStringForType(plainText, 'NSStringPboardType');
 if (firstUrlString !== null) {
   pasteboard.setStringForType(firstUrlString, 'NSURLPboardType');
   pasteboard.setStringForType(firstUrlString, 'Apple URL pasteboard type');
@@ -131,4 +196,46 @@ if (firstUrlString !== null) {
             // The in-app clipboard remains valid even if macOS rejects pasteboard sync.
         }
     }
+
+    private static IntPtr CreateString(string value)
+    {
+        var stringClass = objc_getClass("NSString");
+        return stringClass == IntPtr.Zero
+            ? IntPtr.Zero
+            : objc_msgSend_string(stringClass, sel_registerName("stringWithUTF8String:"), value);
+    }
+
+    private static IntPtr Send(IntPtr receiver, string selector)
+        => receiver == IntPtr.Zero ? IntPtr.Zero : objc_msgSend(receiver, sel_registerName(selector));
+
+    private static bool SendBool(IntPtr receiver, string selector, IntPtr value, IntPtr type)
+        => receiver != IntPtr.Zero
+            && value != IntPtr.Zero
+            && type != IntPtr.Zero
+            && objc_msgSend_bool_intptr_intptr(receiver, sel_registerName(selector), value, type) != 0;
+
+    [DllImport("/usr/lib/libobjc.A.dylib")]
+    private static extern IntPtr objc_getClass(string name);
+
+    [DllImport("/usr/lib/libobjc.A.dylib")]
+    private static extern IntPtr sel_registerName(string name);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_string(
+        IntPtr receiver,
+        IntPtr selector,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern byte objc_msgSend_bool_intptr_intptr(
+        IntPtr receiver,
+        IntPtr selector,
+        IntPtr value,
+        IntPtr type);
+
+    [DllImport("/usr/lib/libSystem.B.dylib")]
+    private static extern IntPtr dlopen(string path, int mode);
 }

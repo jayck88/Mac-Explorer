@@ -173,8 +173,7 @@ public partial class TaskPanel : ToolWindow
 
             panel.Children.Add(CreateIconButton(AppIcons.Close, "取消任务", () =>
             {
-                task.Cts.Cancel();
-                _taskManager?.RemoveTask(task.Id);
+                _taskManager?.CancelTask(task.Id);
             }));
         }
         else

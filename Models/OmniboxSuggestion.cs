@@ -1,9 +1,13 @@
+using System.Threading.Tasks;
+
 namespace MacExplorer.Models;
 
 public enum OmniboxSuggestionKind
 {
     Path,
-    Result
+    Result,
+    Command,
+    RecentDirectory
 }
 
 public sealed record OmniboxSuggestion(
@@ -13,4 +17,5 @@ public sealed record OmniboxSuggestion(
     string Value,
     string IconData,
     string IconColor,
-    FileSystemEntry? Entry = null);
+    FileSystemEntry? Entry = null,
+    Func<Task>? ExecuteAction = null);

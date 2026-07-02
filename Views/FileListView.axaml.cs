@@ -946,9 +946,15 @@ public partial class FileListView : UserControl
 
     private async System.Threading.Tasks.Task ExecuteMenuActionAsync(ContextMenuAction action)
     {
-        DismissContextMenu();
-        if (action.Execute != null)
-            await action.Execute();
+        try
+        {
+            if (action.Execute != null)
+                await action.Execute();
+        }
+        finally
+        {
+            DismissContextMenu();
+        }
     }
 
     private void OnContextMenuKeyDown(object? sender, KeyEventArgs e)
@@ -1936,6 +1942,17 @@ public partial class FileListView : UserControl
 
         var commandModifier = e.KeyModifiers.HasFlag(KeyModifiers.Meta)
                               || e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+        if (commandModifier
+            && e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            && !e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+            && e.Key == Key.C)
+        {
+            DismissContextMenu();
+            _ = ViewModel.CopyPathAsync();
+            e.Handled = true;
+            return true;
+        }
 
         if (commandModifier && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
         {

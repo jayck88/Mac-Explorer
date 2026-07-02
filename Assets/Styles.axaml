@@ -194,6 +194,96 @@
         <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
     </Style>
 
+    <Style Selector="Border.view-mode-segmented">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="2"/>
+        <Setter Property="Background" Value="{DynamicResource ViewModeToggleBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ViewModeToggleBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinWidth" Value="28"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIcon}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Padding="{TemplateBinding Padding}"/>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:pointerover">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:checked">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:pressed">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+
+    <Style Selector="Border.view-mode-toggle-surface">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="7"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIcon}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:pointerover PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:checked PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:pointerover Border.view-mode-toggle-surface">
+        <Setter Property="Background" Value="{DynamicResource ViewModeToggleHoverBg}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:checked Border.view-mode-toggle-surface">
+        <Setter Property="Background" Value="{DynamicResource ViewModeToggleSelectedBg}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource ViewModeToggleShadow}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:checked:pointerover Border.view-mode-toggle-surface">
+        <Setter Property="Background" Value="{DynamicResource ViewModeToggleSelectedBg}"/>
+    </Style>
+
     <Style Selector="TextBlock.toolbar-popup-header">
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -202,13 +292,13 @@
     </Style>
 
     <Style Selector="Border.toolbar-popup">
-        <Setter Property="Margin" Value="12,6,12,12"/>
+        <Setter Property="Margin" Value="12"/>
         <Setter Property="Padding" Value="6"/>
         <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="BoxShadow" Value="{StaticResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
     </Style>
 
     <Style Selector="Button.toolbar-popup-item">
@@ -311,13 +401,13 @@
 </Style>
 
     <Style Selector="Border.omnibox-popup">
-        <Setter Property="Margin" Value="12,6,12,12"/>
+        <Setter Property="Margin" Value="12"/>
         <Setter Property="Padding" Value="6"/>
         <Setter Property="Background" Value="{DynamicResource GlassMenuBg}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="BoxShadow" Value="{StaticResource WindowShadow}"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource WindowShadow}"/>
     </Style>
 
     <Style Selector="ListBox.omnibox-suggestions">
@@ -356,7 +446,7 @@
         <Setter Property="Padding" Value="10,4"/>
         <Setter Property="Height" Value="32"/>
         <Setter Property="Width" Value="220"/>
-        <Setter Property="BoxShadow" Value="inset 0 0 0 1 #06000000"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource InsetHairlineShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
                 <DoubleTransition Property="Width" Duration="0:0:0.18" Easing="CubicEaseOut"/>
@@ -373,7 +463,7 @@
     <Style Selector="Border.search-bar:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
         <Setter Property="Width" Value="252"/>
-        <Setter Property="BoxShadow" Value="0 8 24 -18 #2A000000, inset 0 0 0 1 #10000000"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource InputFocusShadow}"/>
     </Style>
 
     <Style Selector="TextBox.search-input">
@@ -587,7 +677,7 @@
         <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
         <Setter Property="CornerRadius" Value="999"/>
         <Setter Property="Padding" Value="12,6"/>
-        <Setter Property="BoxShadow" Value="inset 0 0 0 1 #06000000"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource InsetHairlineShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
                 <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
@@ -598,7 +688,7 @@
 
     <Style Selector="Border.ai-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BoxShadow" Value="0 8 24 -18 #2A000000, inset 0 0 0 1 #10000000"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource InputFocusShadow}"/>
     </Style>
 
     <!-- ═══ Task Overlay Panel ═══ -->
@@ -686,7 +776,7 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="999"/>
-        <Setter Property="BoxShadow" Value="0 10 30 -20 #28000000, inset 0 0 0 1 #06000000"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource HomeSearchShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
                 <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut"/>
@@ -699,7 +789,7 @@
     <Style Selector="Border.home-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
         <Setter Property="Width" Value="560"/>
-        <Setter Property="BoxShadow" Value="0 16 36 -22 #30000000, inset 0 0 0 1 #10000000"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource HomeSearchFocusShadow}"/>
     </Style>
 
     <Style Selector="TextBox.home-search-input">

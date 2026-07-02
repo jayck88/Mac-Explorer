@@ -138,7 +138,9 @@ public partial class ArchiveViewModel : ObservableObject
         Func<Task<string?>> promptPassword)
     {
         if (_archiveService == null || _taskManager == null) return;
-        var (archPath, _) = ArchivePathHelper.Parse(entry.FullPath);
+        var archPath = ArchivePathHelper.IsArchivePath(entry.FullPath)
+            ? ArchivePathHelper.Parse(entry.FullPath).archivePath
+            : entry.FullPath;
         var destDir = Path.GetDirectoryName(archPath) ?? currentPath;
 
         var taskInfo = _taskManager.AddTask("正在解压...", async () =>

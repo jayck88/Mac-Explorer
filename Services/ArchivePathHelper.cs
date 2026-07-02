@@ -9,6 +9,9 @@ public static class ArchivePathHelper
 
     public static (string archivePath, string internalPath) Parse(string sentinelPath)
     {
+        if (!IsArchivePath(sentinelPath))
+            return (sentinelPath, "");
+
         var payload = sentinelPath[Prefix.Length..];
         var hashIdx = payload.IndexOf('#');
         if (hashIdx < 0)

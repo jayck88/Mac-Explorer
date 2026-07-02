@@ -29,6 +29,21 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         return task;
     }
 
+    public BackgroundTaskInfo AddTask(string label, BackgroundTaskKind kind, Func<Task>? onCompleted = null, Func<Task>? retryAction = null)
+    {
+        var task = new BackgroundTaskInfo
+        {
+            Label = label,
+            Kind = kind,
+            OnCompleted = onCompleted,
+            RetryAction = retryAction,
+            CanRetry = retryAction != null
+        };
+        lock (_lock) _tasks.Add(task);
+        RaiseTasksChanged();
+        return task;
+    }
+
     public void UpdateProgress(string taskId, double progress, string currentFile, string? label = null)
     {
         lock (_lock)
@@ -64,15 +79,53 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 
     public void FailTask(string taskId, string error)
     {
+        FailTask(taskId, error, null);
+    }
+
+    public void FailTask(string taskId, string error, string? errorDetail)
+    {
         lock (_lock)
         {
             var task = _tasks.FirstOrDefault(t => t.Id == taskId);
             if (task == null) return;
             task.State = BackgroundTaskState.Failed;
             task.ErrorMessage = error;
+            task.ErrorDetail = errorDetail;
+            task.CanRetry = task.RetryAction != null;
+        }
+        RaiseTasksChanged();
+    }
+
+    public void CancelTask(string taskId)
+    {
+        lock (_lock)
+        {
+            var task = _tasks.FirstOrDefault(t => t.Id == taskId);
+            if (task == null) return;
+            task.Cts.Cancel();
+            task.State = BackgroundTaskState.Cancelled;
+        }
+        RaiseTasksChanged();
+    }
+
+    public void RetryTask(string taskId)
+    {
+        Func<Task>? retryAction = null;
+        lock (_lock)
+        {
+            var task = _tasks.FirstOrDefault(t => t.Id == taskId);
+            if (task == null || task.RetryAction == null) return;
+            task.State = BackgroundTaskState.Running;
+            task.Progress = 0;
+            task.ErrorMessage = null;
+            task.ErrorDetail = null;
+            task.Cts = new CancellationTokenSource();
+            retryAction = task.RetryAction;
         }
         RaiseTasksChanged();
 
+        if (retryAction != null)
+            _ = Task.Run(async () => { try { await retryAction(); } catch (Exception ex) { _logger?.LogWarning(ex, "Background task retry failed for task {TaskId}", taskId); } });
     }
 
     public void MinimizeTask(string taskId)

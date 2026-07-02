@@ -6,8 +6,17 @@ namespace MacExplorer.Services;
 
 public static class OmniboxService
 {
-    private const int MaxPathSuggestions = 6;
-    private const int MaxSearchSuggestions = 10;
+    private static readonly List<IOmniboxProvider> _providers = [];
+
+    /// <summary>Register an omnibox provider. Called at startup from App.axaml.cs.</summary>
+    public static void RegisterProvider(IOmniboxProvider provider)
+    {
+        if (!_providers.Contains(provider))
+            _providers.Add(provider);
+    }
+
+    /// <summary>Clear all registered providers (for testing).</summary>
+    public static void ClearProviders() => _providers.Clear();
 
     public static async Task<IReadOnlyList<OmniboxSuggestion>> GetSuggestionsAsync(
         FileListViewModel viewModel,
@@ -15,44 +24,54 @@ public static class OmniboxService
         CancellationToken cancellationToken)
     {
         var value = input?.Trim() ?? string.Empty;
-        if (value.Length == 0)
+
+        // If no providers registered, return empty (providers are registered at startup)
+        if (_providers.Count == 0)
             return [];
 
-        var suggestions = await Task.Run(
-            () => GetPathSuggestions(
-                value,
-                viewModel.HomeDirectory,
-                cancellationToken),
-            cancellationToken);
-        var seenPaths = new HashSet<string>(
-            suggestions.Select(suggestion => suggestion.Value),
-            StringComparer.OrdinalIgnoreCase);
+        var allSuggestions = new List<OmniboxSuggestion>();
+        var seenValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var results = await viewModel.GetSearchSuggestionsAsync(
-            value,
-            MaxSearchSuggestions,
-            cancellationToken);
-
-        foreach (var entry in results)
+        foreach (var provider in _providers.OrderBy(p => p.Priority))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (seenPaths.Add(entry.FullPath))
-                suggestions.Add(CreateResultSuggestion(entry));
+            try
+            {
+                var results = await provider.GetSuggestionsAsync(viewModel, value, cancellationToken);
+                foreach (var suggestion in results)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    // Deduplicate by Value (path or command title)
+                    if (seenValues.Add(suggestion.Value))
+                        allSuggestions.Add(suggestion);
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* A failing provider should not break the entire palette */ }
         }
 
-        return suggestions;
+        return allSuggestions;
     }
 
     public static async Task ExecuteAsync(
         FileListViewModel viewModel,
         OmniboxSuggestion suggestion)
     {
+        // If the suggestion has an explicit execute action (e.g., commands), run it
+        if (suggestion.ExecuteAction != null)
+        {
+            await suggestion.ExecuteAction();
+            return;
+        }
+
+        // Result: reveal the file in the list
         if (suggestion.Kind == OmniboxSuggestionKind.Result && suggestion.Entry != null)
         {
             await viewModel.RevealFileAsync(suggestion.Entry);
             return;
         }
 
+        // Path or RecentDirectory: navigate to the path
         await NavigateToPathAsync(viewModel, suggestion.Value);
     }
 
@@ -68,138 +87,19 @@ public static class OmniboxService
             await viewModel.SearchAsync(value);
     }
 
-    private static List<OmniboxSuggestion> GetPathSuggestions(
-        string value,
-        string homeDirectory,
-        CancellationToken cancellationToken)
-    {
-        var suggestions = new List<OmniboxSuggestion>();
-        var path = NormalizePath(value);
-        if (IsNavigablePath(path))
-            suggestions.Add(CreatePathSuggestion(path));
+    // ── Static helpers used by ExecuteAsync / ExecuteInputAsync ──
 
-        if (!LooksLikePath(value))
-        {
-            AddFuzzyDirectoryMatches(
-                homeDirectory,
-                value,
-                suggestions,
-                cancellationToken);
-            return suggestions;
-        }
-
-        var endsWithSeparator = path.EndsWith(Path.DirectorySeparatorChar)
-                                || path.EndsWith(Path.AltDirectorySeparatorChar);
-        var directory = endsWithSeparator ? path : Path.GetDirectoryName(path);
-        var prefix = endsWithSeparator ? string.Empty : Path.GetFileName(path);
-        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
-            return suggestions;
-
-        try
-        {
-            foreach (var candidate in Directory.EnumerateDirectories(directory)
-                         .Where(candidate => Path.GetFileName(candidate)
-                             .Contains(prefix, StringComparison.OrdinalIgnoreCase))
-                         .OrderBy(candidate => Path.GetFileName(candidate), StringComparer.OrdinalIgnoreCase)
-                         .Take(MaxPathSuggestions))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!string.Equals(candidate, path, StringComparison.Ordinal))
-                    suggestions.Add(CreatePathSuggestion(candidate));
-            }
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-        catch (IOException)
-        {
-        }
-
-        return suggestions;
-    }
-
-    private static void AddFuzzyDirectoryMatches(
-        string root,
-        string value,
-        ICollection<OmniboxSuggestion> suggestions,
-        CancellationToken cancellationToken)
-    {
-        if (!Directory.Exists(root))
-            return;
-
-        try
-        {
-            foreach (var candidate in Directory.EnumerateDirectories(root)
-                         .Where(candidate => Path.GetFileName(candidate)
-                             .Contains(value, StringComparison.OrdinalIgnoreCase))
-                         .OrderBy(candidate => Path.GetFileName(candidate), StringComparer.OrdinalIgnoreCase)
-                         .Take(MaxPathSuggestions))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                suggestions.Add(CreatePathSuggestion(candidate));
-            }
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-        catch (IOException)
-        {
-        }
-    }
-
-    private static OmniboxSuggestion CreatePathSuggestion(string path)
-    {
-        var normalized = VirtualPath.IsRemotePath(path) ? path : Path.GetFullPath(path);
-        var title = VirtualPath.IsRemotePath(path)
-            ? path
-            : normalized == Path.GetPathRoot(normalized)
-                ? normalized
-                : Path.GetFileName(normalized.TrimEnd(
-                    Path.DirectorySeparatorChar,
-                    Path.AltDirectorySeparatorChar));
-
-        return new OmniboxSuggestion(
-            OmniboxSuggestionKind.Path,
-            string.IsNullOrEmpty(title) ? normalized : title,
-            normalized,
-            normalized,
-            AppIcons.Folder,
-            "#54A3F7");
-    }
-
-    private static OmniboxSuggestion CreateResultSuggestion(FileSystemEntry entry)
-        => new(
-            OmniboxSuggestionKind.Result,
-            entry.Name,
-            entry.FullPath,
-            entry.FullPath,
-            entry.IsDirectory ? AppIcons.Folder : AppIcons.File,
-            entry.IsDirectory ? "#54A3F7" : "#7C8798",
-            entry);
-
-    private static bool LooksLikePath(string value)
-        => value.StartsWith('~')
-           || value.StartsWith('/')
-           || value.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
-           || value.Contains(Path.DirectorySeparatorChar)
-           || value.Contains(Path.AltDirectorySeparatorChar);
-
-    private static bool IsNavigablePath(string path)
+    internal static bool IsNavigablePath(string path)
         => Directory.Exists(path) || VirtualPath.IsRemotePath(path);
 
-    private static string NormalizePath(string value)
+    internal static string NormalizePath(string value)
     {
         if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.IsFile)
             value = uri.LocalPath;
         else
         {
-            try
-            {
-                value = Uri.UnescapeDataString(value);
-            }
-            catch (UriFormatException)
-            {
-            }
+            try { value = Uri.UnescapeDataString(value); }
+            catch (UriFormatException) { }
         }
 
         if (value.StartsWith('~'))

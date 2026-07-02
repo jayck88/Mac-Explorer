@@ -298,6 +298,9 @@ public partial class FinderSidebarView : UserControl
         if (topLevel is not Window window) return;
 
         var dialog = new RemoteConnectionDialog();
+        using var modalBlock = window is MainWindow mainWindow
+            ? mainWindow.BlockModalParentInteraction()
+            : null;
         var result = await dialog.ShowDialog<RemoteServerInfo?>(window);
         if (result != null && dialog.Connected && ViewModel != null)
         {

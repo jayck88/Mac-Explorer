@@ -109,12 +109,24 @@
             <Separator Grid.Column="7" Classes="toolbar-separator"/>
 
             <!-- View mode toggle -->
-            <Button Grid.Column="8" Classes="ghost toolbar-btn w32" ToolTip.Tip="图标视图" Click="ToggleGridView">
-                <PathIcon Data="{x:Static icons:Icons.Grid}" Width="14" Height="14"/>
-            </Button>
-            <Button Grid.Column="9" Classes="ghost toolbar-btn w32" ToolTip.Tip="列表视图" Click="ToggleListView">
-                <PathIcon Data="{x:Static icons:Icons.List}" Width="14" Height="14"/>
-            </Button>
+            <Border Grid.Column="8" Grid.ColumnSpan="2" Classes="view-mode-segmented">
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton x:Name="GridViewToggle" Classes="view-mode-toggle"
+                                  ToolTip.Tip="图标视图" Click="ToggleGridView">
+                        <Border Classes="view-mode-toggle-surface">
+                            <PathIcon Data="{x:Static icons:Icons.Grid}" Width="14" Height="14"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ToggleButton>
+                    <ToggleButton x:Name="ListViewToggle" Classes="view-mode-toggle"
+                                  ToolTip.Tip="列表视图" Click="ToggleListView">
+                        <Border Classes="view-mode-toggle-surface">
+                            <PathIcon Data="{x:Static icons:Icons.List}" Width="14" Height="14"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ToggleButton>
+                </StackPanel>
+            </Border>
 
             <Separator Grid.Column="10" Classes="toolbar-separator"/>
 
@@ -169,6 +181,14 @@
                    Opened="OnDropdownStateChanged" Closed="OnDropdownStateChanged">
                 <Border Classes="toolbar-popup" MinWidth="180">
                     <StackPanel>
+                        <Button Classes="toolbar-popup-item"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Click="OnBatchRename">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{x:Static icons:Icons.Rename}" Width="14" Height="14"/>
+                                <TextBlock Text="批量重命名" FontSize="13"/>
+                            </StackPanel>
+                        </Button>
                         <Button Classes="toolbar-popup-item"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Click="OnConnectRemoteServer">

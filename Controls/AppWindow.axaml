@@ -13,7 +13,7 @@
                         <Border x:Name="WindowShadowLayer"
                                 Background="{DynamicResource WindowBackgroundBrush}"
                                 CornerRadius="{StaticResource RadiusXl}"
-                                BoxShadow="{StaticResource WindowShadow}"/>
+                                BoxShadow="{DynamicResource WindowShadow}"/>
                         <Border x:Name="WindowFrame"
                                 Background="{DynamicResource WindowBackgroundBrush}"
                                 BorderBrush="{DynamicResource WindowBorderBrush}"
@@ -21,16 +21,16 @@
                                 CornerRadius="{StaticResource RadiusXl}"
                                 ClipToBounds="True">
                             <Grid RowDefinitions="40,*">
-                                <local:WindowTitleBar Grid.Row="0" Title="{TemplateBinding Title}"/>
-                                <ContentPresenter Grid.Row="1"
-                                                  Content="{TemplateBinding Content}"
-                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
-
-                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="West" Width="10"
-                                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Cursor="SizeWestEast"
-                                                        IsVisible="{TemplateBinding CanResize}"/>
+                                <local:WindowTitleBar Grid.Row="0" Title="{TemplateBinding Title}"
+                                                      TitleBarContent="{TemplateBinding TitleBarContent}"/>
+	                                <ContentPresenter Grid.Row="1"
+	                                                  Content="{TemplateBinding Content}"
+	                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+	                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+	                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+	                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="West" Width="10"
+	                                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Cursor="SizeWestEast"
+	                                                        IsVisible="{TemplateBinding CanResize}"/>
                                 <local:WindowResizeGrip Grid.RowSpan="2" Edge="East" Width="10"
                                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Cursor="SizeWestEast"
                                                         IsVisible="{TemplateBinding CanResize}"/>
@@ -49,10 +49,15 @@
                                 <local:WindowResizeGrip Grid.RowSpan="2" Edge="SouthWest" Width="16" Height="16"
                                                         HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeAll"
                                                         IsVisible="{TemplateBinding CanResize}"/>
-                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="SouthEast" Width="16" Height="16"
-                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeAll"
-                                                        IsVisible="{TemplateBinding CanResize}"/>
-                            </Grid>
+	                                <local:WindowResizeGrip Grid.RowSpan="2" Edge="SouthEast" Width="16" Height="16"
+	                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeAll"
+	                                                        IsVisible="{TemplateBinding CanResize}"/>
+	                                <Border x:Name="ModalTitleBarHitShield"
+	                                        Grid.Row="0"
+	                                        Background="Transparent"
+	                                        IsHitTestVisible="True"
+	                                        IsVisible="False"/>
+	                            </Grid>
                         </Border>
                     </Grid>
                 </ControlTemplate>
@@ -68,6 +73,9 @@
                 <Setter Property="CornerRadius" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>
             </Style>
+	            <Style Selector="^:modal-blocked /template/ Border#ModalTitleBarHitShield">
+	                <Setter Property="IsVisible" Value="True"/>
+	            </Style>
         </ControlTheme>
     </Styles.Resources>
 </Styles>

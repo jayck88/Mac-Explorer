@@ -48,6 +48,8 @@ public partial class MainWindow : AppWindow
     private double _normalPreviewWidth = 380;
     private bool _isPreviewExpanded;
     private CancellationTokenSource? _previewAnimationCts;
+    private bool _isCompactLayout;
+    private bool _isSidebarCollapsed;
 
     public string? InitialNavigationPath { get; init; }
 
@@ -74,6 +76,7 @@ public partial class MainWindow : AppWindow
         SizeChanged += OnWindowSizeChanged;
         PositionChanged += (_, _) => ToolbarControl.CloseDropdowns();
         Deactivated += (_, _) => ToolbarControl.CloseDropdowns();
+        UpdateResponsiveLayout(Width);
 
         // Ctrl+Shift+G: open Liquid Glass demo
         KeyDown += (_, e) =>
@@ -901,16 +904,59 @@ public partial class MainWindow : AppWindow
             InfoPanelPane.ColumnDefinitions[0].Width = new GridLength(0);
         InfoPanelControl.SetExpandedChrome(expanded);
         await AnimatePreviewWidthAsync(expanded, expanded
-            ? Math.Max(380, InfoDrawer.Bounds.Width)
-            : Math.Clamp(_normalPreviewWidth, 280, Math.Max(280, Bounds.Width * 0.5)));
+            ? (_isCompactLayout ? GetInfoPanelMaxWidth() : Math.Max(380, InfoDrawer.Bounds.Width))
+            : Math.Clamp(_normalPreviewWidth, 280, GetInfoPanelMaxWidth()));
         if (!expanded && _isPreviewExpanded == expanded)
             InfoPanelPane.ColumnDefinitions[0].Width = new GridLength(6);
     }
 
     private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
     {
+        UpdateResponsiveLayout(e.NewSize.Width);
         if (_isPreviewExpanded && InfoDrawer.Bounds.Width > 0)
-            InfoDrawer.OpenPaneLength = InfoDrawer.Bounds.Width;
+            InfoDrawer.OpenPaneLength = _isCompactLayout
+                ? GetInfoPanelMaxWidth()
+                : InfoDrawer.Bounds.Width;
+    }
+
+    private void UpdateResponsiveLayout(double width)
+    {
+        var layout = ResponsiveWindowLayout.Resolve(width);
+        var compact = layout.IsCompact;
+        if (_isCompactLayout != compact)
+        {
+            _isCompactLayout = compact;
+            PseudoClasses.Set(":compact", compact);
+            SidebarToggleButton.IsVisible = compact;
+            InfoDrawer.DisplayMode = layout.InfoPanelDisplayMode;
+        }
+
+        SidebarHost.Width = layout.SidebarWidth;
+        SidebarHost.IsVisible = !compact || !_isSidebarCollapsed;
+        InfoDrawer.OpenPaneLength = Math.Clamp(InfoDrawer.OpenPaneLength, 280, GetInfoPanelMaxWidth());
+    }
+
+    private double GetInfoPanelMaxWidth()
+    {
+        var availableWidth = InfoDrawer.Bounds.Width > 0 ? InfoDrawer.Bounds.Width : Bounds.Width;
+        return _isCompactLayout
+            ? Math.Max(280, availableWidth - 64)
+            : Math.Max(280, Bounds.Width * 0.5);
+    }
+
+    private void ToggleSidebar(object? sender, RoutedEventArgs e)
+    {
+        if (!_isCompactLayout)
+            return;
+
+        if (!_isSidebarCollapsed
+            && FocusManager?.GetFocusedElement() is Visual focused
+            && IsInsideVisual(focused, SidebarHost))
+            SidebarToggleButton.Focus();
+
+        _isSidebarCollapsed = !_isSidebarCollapsed;
+        SidebarHost.IsVisible = !_isSidebarCollapsed;
+        ToolTip.SetTip(SidebarToggleButton, _isSidebarCollapsed ? "显示侧栏" : "隐藏侧栏");
     }
 
     private async Task AnimatePreviewWidthAsync(bool expanded, double targetWidth)
@@ -920,7 +966,9 @@ public partial class MainWindow : AppWindow
         _previewAnimationCts = new CancellationTokenSource();
         var token = _previewAnimationCts.Token;
         var startWidth = InfoDrawer.OpenPaneLength;
-        InfoDrawer.DisplayMode = SplitViewDisplayMode.Inline;
+        InfoDrawer.DisplayMode = _isCompactLayout
+            ? SplitViewDisplayMode.Overlay
+            : SplitViewDisplayMode.Inline;
         var stopwatch = Stopwatch.StartNew();
         const double durationMilliseconds = 180;
 
@@ -949,7 +997,7 @@ public partial class MainWindow : AppWindow
         _pendingPreviewWidth = Math.Clamp(
             InfoDrawer.Bounds.Width - e.GetPosition(InfoDrawer).X,
             280,
-            Math.Max(280, Bounds.Width * 0.5));
+            GetInfoPanelMaxWidth());
         if (!_previewResizeFramePending)
         {
             _previewResizeFramePending = true;
@@ -1022,9 +1070,15 @@ public partial class MainWindow : AppWindow
     private async void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
         var hasQuery = !string.IsNullOrWhiteSpace(SearchBox.Text);
+        SearchHost.Classes.Set("has-query", hasQuery);
         SearchClearBtn.IsVisible = hasQuery;
         if (!hasQuery && _vm?.FileList.IsSearchMode == true)
             await RestoreSearchOriginAsync();
+    }
+
+    private void RevealSearch(object? sender, RoutedEventArgs e)
+    {
+        SearchBox.Focus();
     }
 
     private async void ClearSearch(object? sender, RoutedEventArgs e)

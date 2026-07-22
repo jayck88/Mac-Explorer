@@ -19,6 +19,7 @@ public partial class FileOpsViewModel : ObservableObject
     private readonly IFileIndexWriter? _fileIndexWriter;
     private readonly IFileIndex? _fileIndex;
     private readonly IFileOperationHistoryService? _fileOperationHistoryService;
+    private readonly IFileTagService? _fileTagService;
     private readonly Microsoft.Extensions.Logging.ILogger<FileOpsViewModel>? _logger;
 
     /// <summary>被剪切文件的完整路径集合，用于 UI 半透明显示</summary>
@@ -34,6 +35,7 @@ public partial class FileOpsViewModel : ObservableObject
         IFileIndexWriter? fileIndexWriter = null,
         IFileIndex? fileIndex = null,
         IFileOperationHistoryService? fileOperationHistoryService = null,
+        IFileTagService? fileTagService = null,
         Microsoft.Extensions.Logging.ILogger<FileOpsViewModel>? logger = null)
     {
         _clipboardService = clipboardService;
@@ -45,6 +47,7 @@ public partial class FileOpsViewModel : ObservableObject
         _fileIndexWriter = fileIndexWriter;
         _fileIndex = fileIndex;
         _fileOperationHistoryService = fileOperationHistoryService;
+        _fileTagService = fileTagService;
         _logger = logger;
     }
 
@@ -100,9 +103,17 @@ public partial class FileOpsViewModel : ObservableObject
             foreach (var sourcePath in entry.SourcePaths)
             {
                 if (entry.Operation == ClipboardOperation.Copy)
+                {
                     await _fileService.CopyAsync(sourcePath, currentPath);
+                    if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
+                        await _fileTagService.CopyPathAsync(sourcePath, Path.Combine(currentPath, Path.GetFileName(sourcePath)));
+                }
                 else
+                {
                     await _fileService.MoveAsync(sourcePath, currentPath, overwrite);
+                    if (_fileTagService != null && !VirtualPath.IsRemotePath(currentPath))
+                        await _fileTagService.UpdatePathAsync(sourcePath, Path.Combine(currentPath, Path.GetFileName(sourcePath)));
+                }
             }
             if (entry.Operation == ClipboardOperation.Cut) { _clipboardService.Clear(); CutPaths.Clear(); OnPropertyChanged(nameof(CutPaths)); }
 
@@ -127,7 +138,8 @@ public partial class FileOpsViewModel : ObservableObject
         string currentPath,
         bool isCollectionView,
         int? currentCollectionId,
-        Action<string>? setStatus = null)
+        Action<string>? setStatus = null,
+        FileListViewModel? excludeVm = null)
     {
         if (selectedEntries.Count == 0) return;
         try
@@ -149,6 +161,12 @@ public partial class FileOpsViewModel : ObservableObject
                 catch (Exception ex) { _logger?.LogError(ex, "Failed to delete AI analysis data for {Count} files", deletedPaths.Count); }
             }
 
+            if (_fileTagService != null)
+            {
+                foreach (var deletedPath in deletedPaths)
+                    await _fileTagService.DeletePathAsync(deletedPath);
+            }
+
             // DeleteSelectedAsync is the centralized delete path for ALL views.
             // Use the actual parent directories of deleted files so that file-system
             // directory views (including NormalView) get notified even when the user
@@ -159,9 +177,9 @@ public partial class FileOpsViewModel : ObservableObject
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
             if (parentDirs.Length > 0)
-                _directoryChangeNotifier?.NotifyChanged(parentDirs, null);
+                _directoryChangeNotifier?.NotifyChanged(parentDirs, excludeVm);
             else
-                _directoryChangeNotifier?.NotifyChanged([currentPath], null);
+                _directoryChangeNotifier?.NotifyChanged([currentPath], excludeVm);
         }
         catch (Exception ex)
         {
@@ -179,12 +197,14 @@ public partial class FileOpsViewModel : ObservableObject
         try
         {
             await _fileService.MoveAsync(source.FullPath, targetFolder.FullPath);
+            var movedPath = Path.Combine(targetFolder.FullPath, Path.GetFileName(source.FullPath));
+            if (_fileTagService != null)
+                await _fileTagService.UpdatePathAsync(source.FullPath, movedPath);
 
             // Record for undo
             if (_fileOperationHistoryService != null)
             {
-                var newPath = Path.Combine(targetFolder.FullPath, Path.GetFileName(source.FullPath));
-                await _fileOperationHistoryService.RecordMoveAsync(source.FullPath, newPath);
+                await _fileOperationHistoryService.RecordMoveAsync(source.FullPath, movedPath);
             }
 
             _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(source.FullPath) ?? "", targetFolder.FullPath], null);
@@ -240,7 +260,11 @@ public partial class FileOpsViewModel : ObservableObject
             try
             {
                 foreach (var path in sourcePaths)
+                {
                     await _fileService.MoveAsync(path, targetFolder.FullPath, overwrite);
+                    if (_fileTagService != null)
+                        await _fileTagService.UpdatePathAsync(path, Path.Combine(targetFolder.FullPath, Path.GetFileName(path)));
+                }
                 _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null);
             }
             catch (Exception ex)
@@ -266,6 +290,14 @@ public partial class FileOpsViewModel : ObservableObject
                 });
                 await _fileService.MoveWithProgressAsync(sourcePaths, targetFolder.FullPath,
                     progress, taskInfo.Cts.Token);
+                if (_fileTagService != null)
+                {
+                    foreach (var path in sourcePaths)
+                        await _fileTagService.UpdatePathAsync(
+                            path,
+                            Path.Combine(targetFolder.FullPath, Path.GetFileName(path)),
+                            taskInfo.Cts.Token);
+                }
                 _taskManager.CompleteTask(taskInfo.Id);
                 _directoryChangeNotifier?.NotifyChanged(affectedDirectories, null);
             }
@@ -336,7 +368,8 @@ public partial class FileOpsViewModel : ObservableObject
         FileSystemEntry entry,
         string newName,
         bool isAiView,
-        Action<string>? setStatus = null)
+        Action<string>? setStatus = null,
+        FileListViewModel? excludeVm = null)
     {
         // Virtual face cluster rename - handled by AiViewModel
         if (entry.IsVirtual)
@@ -357,6 +390,9 @@ public partial class FileOpsViewModel : ObservableObject
             if (_aiTagService != null)
                 await _aiTagService.UpdateFilePathAsync(oldPath, newPath);
 
+            if (_fileTagService != null)
+                await _fileTagService.UpdatePathAsync(oldPath, newPath);
+
             // Update file index so FTS5 search reflects the new name
             if (_fileIndexWriter != null)
                 await _fileIndexWriter.RenameEntryAsync(oldPath, newPath, newName);
@@ -367,7 +403,7 @@ public partial class FileOpsViewModel : ObservableObject
                 await _pinnedFolderService.UpdateFolderPathAsync(oldPath, newPath, newName);
             }
 
-            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(oldPath) ?? ""], null);
+            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(oldPath) ?? ""], excludeVm);
         }
         catch (Exception ex)
         {

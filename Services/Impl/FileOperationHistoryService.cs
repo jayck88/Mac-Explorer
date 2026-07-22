@@ -7,6 +7,7 @@ public class FileOperationHistoryService : IFileOperationHistoryService
 {
     private readonly IFileService _fileService;
     private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
+    private readonly IFileTagService? _fileTagService;
     private readonly ILogger<FileOperationHistoryService>? _logger;
     private readonly Stack<FileOperationRecord> _history = new();
     private readonly object _lock = new();
@@ -16,10 +17,12 @@ public class FileOperationHistoryService : IFileOperationHistoryService
     public FileOperationHistoryService(
         IFileService fileService,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
+        IFileTagService? fileTagService = null,
         ILogger<FileOperationHistoryService>? logger = null)
     {
         _fileService = fileService;
         _directoryChangeNotifier = directoryChangeNotifier;
+        _fileTagService = fileTagService;
         _logger = logger;
     }
 
@@ -84,6 +87,8 @@ public class FileOperationHistoryService : IFileOperationHistoryService
                     if (File.Exists(record.CurrentPath) || Directory.Exists(record.CurrentPath))
                     {
                         await _fileService.RenameAsync(record.CurrentPath, Path.GetFileName(record.OriginalPath));
+                        if (_fileTagService != null)
+                            await _fileTagService.UpdatePathAsync(record.CurrentPath, record.OriginalPath);
                         affectedDirs.Add(Path.GetDirectoryName(record.OriginalPath) ?? "");
                         affectedDirs.Add(Path.GetDirectoryName(record.CurrentPath) ?? "");
                     }
@@ -97,6 +102,8 @@ public class FileOperationHistoryService : IFileOperationHistoryService
                         if (Directory.Exists(destDir))
                         {
                             await _fileService.MoveAsync(record.CurrentPath, destDir, overwrite: false);
+                            if (_fileTagService != null)
+                                await _fileTagService.UpdatePathAsync(record.CurrentPath, record.OriginalPath);
                             affectedDirs.Add(destDir);
                             affectedDirs.Add(Path.GetDirectoryName(record.CurrentPath) ?? "");
                         }
@@ -120,6 +127,8 @@ public class FileOperationHistoryService : IFileOperationHistoryService
                         if (Directory.Exists(destDir))
                         {
                             await _fileService.MoveAsync(candidatePath, destDir, overwrite: false);
+                            if (_fileTagService != null)
+                                await _fileTagService.UpdatePathAsync(candidatePath, record.OriginalPath);
                             affectedDirs.Add(destDir);
                         }
                     }

@@ -68,7 +68,7 @@ public sealed class BatchRenameServiceTests
         var fileService = new FakeFileService();
         var service = new BatchRenameService(fileService);
         var progressValues = new List<BatchRenameProgress>();
-        var progress = new Progress<BatchRenameProgress>(progressValues.Add);
+        var progress = new InlineProgress<BatchRenameProgress>(progressValues.Add);
         var items = new List<BatchRenamePreviewItem>
         {
             new()
@@ -80,12 +80,72 @@ public sealed class BatchRenameServiceTests
             }
         };
 
-        var result = await service.ExecuteAsync(items, progress);
+        var result = await service.ExecuteAsync(
+            items,
+            progress,
+            TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.SuccessCount);
         Assert.Single(result.SuccessfulItems);
         Assert.Equal(("/tmp/a.txt", "b.txt"), fileService.Renames.Single());
         Assert.Contains(progressValues, update => update.CompletedCount == 1 && update.TotalCount == 1);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UpdatesFileTagPath()
+    {
+        var fileService = new FakeFileService();
+        var tagService = new TrackingFileTagService();
+        var service = new BatchRenameService(fileService, fileTagService: tagService);
+        var items = new List<BatchRenamePreviewItem>
+        {
+            new()
+            {
+                OriginalPath = "/tmp/a.txt",
+                OriginalName = "a.txt",
+                NewName = "b.txt",
+                NewPath = "/tmp/b.txt"
+            }
+        };
+
+        var result = await service.ExecuteAsync(
+            items,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.SuccessCount);
+        Assert.Equal(("/tmp/a.txt", "/tmp/b.txt"), Assert.Single(tagService.PathUpdates));
+    }
+
+    private sealed class TrackingFileTagService : IFileTagService
+    {
+        public event EventHandler? TagsChanged { add { } remove { } }
+        public List<(string OldPath, string NewPath)> PathUpdates { get; } = [];
+
+        public Task<IReadOnlyList<FileTag>> GetSidebarTagsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<FileTag>>([]);
+
+        public Task<IReadOnlyList<string>> FindFilePathsAsync(FileTag tag, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task ReplaceFileTagsAsync(string filePath, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task UpdatePathAsync(string oldPath, string newPath, CancellationToken cancellationToken = default)
+        {
+            PathUpdates.Add((oldPath, newPath));
+            return Task.CompletedTask;
+        }
+
+        public Task CopyPathAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task DeletePathAsync(string path, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private sealed class FakeFileService : IFileService

@@ -29,11 +29,17 @@ public sealed class PerformancePipelineTests
         try
         {
             for (var i = 0; i < 75; i++)
-                await File.WriteAllTextAsync(Path.Combine(directory, $"file-{i:D3}.txt"), "x");
+                await File.WriteAllTextAsync(
+                    Path.Combine(directory, $"file-{i:D3}.txt"),
+                    "x",
+                    TestContext.Current.CancellationToken);
 
             var service = new MacFileService();
             var entries = new List<FileSystemEntry>();
-            await foreach (var batch in service.EnumerateDirectoryBatchesAsync(directory, 32))
+            await foreach (var batch in service.EnumerateDirectoryBatchesAsync(
+                               directory,
+                               32,
+                               TestContext.Current.CancellationToken))
             {
                 Assert.InRange(batch.Count, 1, 32);
                 entries.AddRange(batch);
@@ -41,6 +47,68 @@ public sealed class PerformancePipelineTests
 
             Assert.Equal(75, entries.Count);
             Assert.Equal(75, entries.Select(entry => entry.FullPath).Distinct().Count());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DirectoryEnumeration_PublishesACompactFirstBatch()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"macexplorer-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            for (var i = 0; i < 200; i++)
+                await File.WriteAllTextAsync(
+                    Path.Combine(directory, $"file-{i:D3}.txt"),
+                    "x",
+                    TestContext.Current.CancellationToken);
+
+            var service = new MacFileService();
+            var batches = new List<IReadOnlyList<FileSystemEntry>>();
+            await foreach (var batch in service.EnumerateDirectoryBatchesAsync(
+                               directory,
+                               256,
+                               TestContext.Current.CancellationToken))
+                batches.Add(batch);
+
+            Assert.NotEmpty(batches);
+            Assert.Equal(64, batches[0].Count);
+            Assert.Equal(200, batches.Sum(batch => batch.Count));
+            Assert.All(batches, batch => Assert.InRange(batch.Count, 1, 256));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DirectoryEnumeration_ObservesCancellation()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"macexplorer-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(directory, "file.txt"),
+                "x",
+                TestContext.Current.CancellationToken);
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+            var service = new MacFileService();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await foreach (var _ in service.EnumerateDirectoryBatchesAsync(
+                                   directory,
+                                   cancellationToken: cancellation.Token))
+                {
+                }
+            });
         }
         finally
         {

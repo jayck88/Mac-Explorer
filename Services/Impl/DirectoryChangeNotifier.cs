@@ -19,6 +19,8 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
     private readonly HashSet<string> _pendingChanges = new(StringComparer.Ordinal);
     private readonly HashSet<FileListViewModel> _excludedVms = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, DateTimeOffset> _suppressedRefreshUntil = new(StringComparer.Ordinal);
+    private readonly Dictionary<FileListViewModel, Dictionary<string, DateTimeOffset>> _suppressedVmRefreshUntil =
+        new(ReferenceEqualityComparer.Instance);
     private Timer? _debounceTimer;
 
     public DirectoryChangeNotifier(
@@ -46,6 +48,7 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
         {
             _viewModels.RemoveAll(wr => !wr.TryGetTarget(out var t) || ReferenceEquals(t, vm));
             _excludedVms.Remove(vm);
+            _suppressedVmRefreshUntil.Remove(vm);
         }
     }
 
@@ -109,6 +112,31 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
         }
     }
 
+    public void SuppressRefreshFor(FileListViewModel vm, string[] directoryPaths, TimeSpan duration)
+    {
+        if (directoryPaths.Length == 0 || duration <= TimeSpan.Zero) return;
+
+        var normalizedPaths = directoryPaths
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(NormalizeDirectoryPath)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (normalizedPaths.Length == 0) return;
+
+        var until = DateTimeOffset.UtcNow.Add(duration);
+        lock (_lock)
+        {
+            if (!_suppressedVmRefreshUntil.TryGetValue(vm, out var suppressedPaths))
+            {
+                suppressedPaths = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+                _suppressedVmRefreshUntil[vm] = suppressedPaths;
+            }
+
+            foreach (var dir in normalizedPaths)
+                suppressedPaths[dir] = until;
+        }
+    }
+
     private void InvalidateIndex(string[] directoryPaths)
     {
         if (_fileIndexWriter == null) return;
@@ -154,7 +182,9 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
                 if (excluded.Contains(vm)) continue;
                 if (vm.IsHomePage) continue;
                 if (string.IsNullOrEmpty(vm.CurrentPath)) continue;
-                if (!dirs.Contains(vm.CurrentPath)) continue;
+                var currentPath = NormalizeDirectoryPath(vm.CurrentPath);
+                if (!dirs.Contains(currentPath)) continue;
+                if (IsRefreshSuppressedFor(vm, currentPath, DateTimeOffset.UtcNow)) continue;
 
                 targets.Add(vm);
             }
@@ -176,6 +206,23 @@ public class DirectoryChangeNotifier : IDirectoryChangeNotifier
                 }
             }
         });
+    }
+
+    private bool IsRefreshSuppressedFor(FileListViewModel vm, string directoryPath, DateTimeOffset now)
+    {
+        if (!_suppressedVmRefreshUntil.TryGetValue(vm, out var suppressedPaths))
+            return false;
+
+        if (!suppressedPaths.TryGetValue(directoryPath, out var suppressedUntil))
+            return false;
+
+        if (suppressedUntil > now)
+            return true;
+
+        suppressedPaths.Remove(directoryPath);
+        if (suppressedPaths.Count == 0)
+            _suppressedVmRefreshUntil.Remove(vm);
+        return false;
     }
 
     private static string NormalizeDirectoryPath(string path)

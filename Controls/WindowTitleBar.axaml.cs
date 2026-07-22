@@ -1,22 +1,24 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Input;
 
 namespace MacExplorer.Controls;
 
 public partial class WindowTitleBar : UserControl
 {
+    private AppWindow? _ownerWindow;
+
     public static readonly StyledProperty<string?> TitleProperty =
         AvaloniaProperty.Register<WindowTitleBar, string?>(nameof(Title));
+
+    public static readonly StyledProperty<Control?> TitleBarContentProperty =
+        AvaloniaProperty.Register<WindowTitleBar, Control?>(nameof(TitleBarContent));
 
     public string? Title
     {
         get => GetValue(TitleProperty);
         set => SetValue(TitleProperty, value);
     }
-
-    public static readonly StyledProperty<Control?> TitleBarContentProperty =
-        AvaloniaProperty.Register<WindowTitleBar, Control?>(nameof(TitleBarContent));
 
     public Control? TitleBarContent
     {
@@ -27,20 +29,43 @@ public partial class WindowTitleBar : UserControl
     public WindowTitleBar()
     {
         InitializeComponent();
-        CloseButton.Click += (_, _) => OwnerWindow?.Close();
+        CloseButton.Click += (_, _) =>
+        {
+            if (_ownerWindow is { IsModalInteractionBlocked: false } window)
+                window.Close();
+        };
         MinimizeButton.Click += (_, _) =>
         {
-            if (OwnerWindow is { CanMinimize: true })
-                SetWindowState(WindowState.Minimized);
+            if (_ownerWindow is { CanMinimize: true, IsModalInteractionBlocked: false } window)
+                window.WindowState = WindowState.Minimized;
         };
-        MaximizeButton.Click += (_, _) => OwnerWindow?.ToggleMaximize();
+        FullScreenButton.Click += (_, _) => _ownerWindow?.ToggleFullScreen();
     }
 
-    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        UpdateWindowControlAvailability();
+        _ownerWindow = TopLevel.GetTopLevel(this) as AppWindow;
+        if (_ownerWindow != null)
+        {
+            _ownerWindow.PropertyChanged += OnOwnerPropertyChanged;
+            _ownerWindow.Activated += OnOwnerActivationChanged;
+            _ownerWindow.Deactivated += OnOwnerActivationChanged;
+        }
+        UpdateWindowControlState();
         UpdateTitleTextVisibility();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_ownerWindow != null)
+        {
+            _ownerWindow.PropertyChanged -= OnOwnerPropertyChanged;
+            _ownerWindow.Activated -= OnOwnerActivationChanged;
+            _ownerWindow.Deactivated -= OnOwnerActivationChanged;
+            _ownerWindow = null;
+        }
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -50,53 +75,34 @@ public partial class WindowTitleBar : UserControl
             UpdateTitleTextVisibility();
     }
 
-    private void UpdateTitleTextVisibility()
+    private void OnOwnerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (TitleText is { } text)
-            text.IsVisible = TitleBarContent is null;
+        if (e.Property == Window.CanMinimizeProperty
+            || e.Property == Window.CanMaximizeProperty
+            || e.Property == Window.WindowStateProperty
+            || e.Property == AppWindow.IsModalInteractionBlockedProperty)
+            UpdateWindowControlState();
     }
 
-    private AppWindow? OwnerWindow => TopLevel.GetTopLevel(this) as AppWindow;
+    private void OnOwnerActivationChanged(object? sender, EventArgs e) => UpdateWindowControlState();
 
-    private void UpdateWindowControlAvailability()
+    private void UpdateTitleTextVisibility() => TitleText.IsVisible = TitleBarContent is null;
+
+    private void UpdateWindowControlState()
     {
-        if (OwnerWindow is not { } window)
+        if (_ownerWindow is not { } window)
             return;
 
-        MinimizeButton.IsEnabled = window.CanMinimize;
-        MaximizeButton.IsEnabled = window.CanMaximize;
-    }
+        var blocked = window.IsModalInteractionBlocked;
+        CloseButton.IsEnabled = !blocked;
+        MinimizeButton.IsEnabled = window.CanMinimize && !blocked;
+        FullScreenButton.IsEnabled = window.CanMaximize && !blocked;
 
-    private void SetWindowState(WindowState state)
-    {
-        if (OwnerWindow is { } window) window.WindowState = state;
-    }
-
-    private void OnDragRegionPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || OwnerWindow is not { } window)
-            return;
-
-        // Only handle drag/maximize when clicking on empty drag area,
-        // not when clicking on interactive content (BreadcrumbBar, buttons, search, etc.)
-        if (e.Source != sender)
-            return;
-
-        if (e.ClickCount == 2)
-        {
-            if (window.CanMaximize)
-                window.ToggleMaximize();
-            e.Handled = true;
-            return;
-        }
-
-        if (window.WindowState is WindowState.Maximized or WindowState.FullScreen)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        window.BeginMoveDrag(e);
-        e.Handled = true;
+        var isFullScreen = window.WindowState == WindowState.FullScreen;
+        var fullScreenLabel = isFullScreen ? "退出全屏" : "进入全屏";
+        ToolTip.SetTip(FullScreenButton, fullScreenLabel);
+        AutomationProperties.SetName(FullScreenButton, fullScreenLabel);
+        PseudoClasses.Set(":inactive", !window.IsActive);
+        PseudoClasses.Set(":modal-blocked", blocked);
     }
 }

@@ -6,6 +6,7 @@ using MacExplorer.Services;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
@@ -121,73 +122,117 @@ public class MacFileService : IFileService
             yield break;
         }
 
-        if (!Directory.Exists(path)) yield break;
-        var batch = new List<FileSystemEntry>(batchSize);
-        var knownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entryPath in Directory.EnumerateFileSystemEntries(path))
+        // Directory enumeration and metadata reads are synchronous filesystem calls.
+        // Run the producer off the caller's synchronization context so navigating to
+        // a folder never blocks the Avalonia UI thread while the first batch is built.
+        var batches = Channel.CreateBounded<IReadOnlyList<FileSystemEntry>>(
+            new BoundedChannelOptions(2)
+            {
+                SingleReader = true,
+                SingleWriter = true,
+                FullMode = BoundedChannelFullMode.Wait
+            });
+        var producer = ProduceDirectoryBatchesAsync(path, batchSize, batches.Writer, cancellationToken);
+
+        await foreach (var batch in batches.Reader.ReadAllAsync(cancellationToken))
+            yield return batch;
+
+        await producer.ConfigureAwait(false);
+    }
+
+    private Task ProduceDirectoryBatchesAsync(
+        string path,
+        int batchSize,
+        ChannelWriter<IReadOnlyList<FileSystemEntry>> writer,
+        CancellationToken cancellationToken)
+    {
+        return Task.Run(async () =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            FileSystemEntry? entry = null;
             try
             {
-                var attrs = File.GetAttributes(entryPath);
-                entry = attrs.HasFlag(FileAttributes.Directory)
-                    ? CreateEntryFromDirectoryPath(entryPath, attrs)
-                    : CreateEntryFromFilePath(entryPath, attrs);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                entry = CreateInaccessibleEntry(entryPath, Path.GetFileName(entryPath), isDirectory: false);
-            }
-            catch { }
+                if (!Directory.Exists(path))
+                {
+                    writer.TryComplete();
+                    return;
+                }
 
-            if (entry != null)
-            {
-                batch.Add(entry);
-                knownNames.Add(entry.Name);
-            }
-            if (batch.Count < batchSize) continue;
-            yield return batch.ToArray();
-            batch.Clear();
-            await Task.Yield();
-        }
-
-        if (batch.Count > 0)
-        {
-            yield return batch.ToArray();
-            batch.Clear();
-        }
-
-        if (path == "/Applications" || path.StartsWith("/Applications/", StringComparison.Ordinal))
-        {
-            var systemPath = "/System" + path;
-            if (Directory.Exists(systemPath))
-            {
-                foreach (var entryPath in Directory.EnumerateFileSystemEntries(systemPath))
+                var batch = new List<FileSystemEntry>(batchSize);
+                var knownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var currentBatchSize = Math.Min(64, batchSize);
+                foreach (var entryPath in Directory.EnumerateFileSystemEntries(path))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    FileSystemEntry? systemEntry = null;
+                    FileSystemEntry? entry = null;
                     try
                     {
-                        var name = Path.GetFileName(entryPath);
-                        if (name.StartsWith('.') || !knownNames.Add(name)) continue;
                         var attrs = File.GetAttributes(entryPath);
-                        systemEntry = attrs.HasFlag(FileAttributes.Directory)
+                        entry = attrs.HasFlag(FileAttributes.Directory)
                             ? CreateEntryFromDirectoryPath(entryPath, attrs)
                             : CreateEntryFromFilePath(entryPath, attrs);
                     }
+                    catch (UnauthorizedAccessException)
+                    {
+                        entry = CreateInaccessibleEntry(entryPath, Path.GetFileName(entryPath), isDirectory: false);
+                    }
                     catch { }
-                    if (systemEntry == null) continue;
-                    batch.Add(systemEntry);
-                    if (batch.Count < batchSize) continue;
-                    yield return batch.ToArray();
-                    batch.Clear();
-                    await Task.Yield();
-                }
-            }
-        }
 
-        if (batch.Count > 0) yield return batch.ToArray();
+                    if (entry != null)
+                    {
+                        batch.Add(entry);
+                        knownNames.Add(entry.Name);
+                    }
+                    if (batch.Count < currentBatchSize) continue;
+                    await writer.WriteAsync(batch.ToArray(), cancellationToken).ConfigureAwait(false);
+                    batch.Clear();
+                    currentBatchSize = batchSize;
+                }
+
+                if (batch.Count > 0)
+                {
+                    await writer.WriteAsync(batch.ToArray(), cancellationToken).ConfigureAwait(false);
+                    batch.Clear();
+                    currentBatchSize = batchSize;
+                }
+
+                if (path == "/Applications" || path.StartsWith("/Applications/", StringComparison.Ordinal))
+                {
+                    var systemPath = "/System" + path;
+                    if (Directory.Exists(systemPath))
+                    {
+                        foreach (var entryPath in Directory.EnumerateFileSystemEntries(systemPath))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            FileSystemEntry? systemEntry = null;
+                            try
+                            {
+                                var name = Path.GetFileName(entryPath);
+                                if (name.StartsWith('.') || !knownNames.Add(name)) continue;
+                                var attrs = File.GetAttributes(entryPath);
+                                systemEntry = attrs.HasFlag(FileAttributes.Directory)
+                                    ? CreateEntryFromDirectoryPath(entryPath, attrs)
+                                    : CreateEntryFromFilePath(entryPath, attrs);
+                            }
+                            catch { }
+                            if (systemEntry == null) continue;
+                            batch.Add(systemEntry);
+                            if (batch.Count < currentBatchSize) continue;
+                            await writer.WriteAsync(batch.ToArray(), cancellationToken).ConfigureAwait(false);
+                            batch.Clear();
+                            currentBatchSize = batchSize;
+                        }
+                    }
+                }
+
+                if (batch.Count > 0)
+                    await writer.WriteAsync(batch.ToArray(), cancellationToken).ConfigureAwait(false);
+
+                writer.TryComplete();
+            }
+            catch (Exception ex)
+            {
+                writer.TryComplete(ex);
+            }
+        }, CancellationToken.None);
     }
 
     private List<FileSystemEntry> EnumerateTrashViaFinder(CancellationToken ct)

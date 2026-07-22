@@ -30,6 +30,7 @@ namespace MacExplorer.Views;
 public sealed class FileListPresentationRow
 {
     public string GroupName { get; init; } = string.Empty;
+    public int GroupItemCount { get; init; }
     public FileSystemEntry? Entry { get; init; }
     public bool IsGroupHeader => Entry == null;
     public bool HasEntries => Entry != null;
@@ -39,6 +40,7 @@ public sealed class FileListPresentationRow
 public sealed class FileGridPresentationRow
 {
     public string GroupName { get; init; } = string.Empty;
+    public int GroupItemCount { get; init; }
     public IReadOnlyList<FileSystemEntry> Entries { get; init; } = [];
     public bool IsGroupHeader => Entries.Count == 0;
     public bool HasEntries => Entries.Count > 0;
@@ -132,9 +134,12 @@ public partial class FileListView : UserControl
     private Task<IReadOnlyList<IStorageItem>>? _dragStorageItemsTask;
     private Bitmap? _dragStartPreviewBitmap;
     private bool _dragStarted;
-    private int _resizingColumn = -1;
+    private FileListColumn? _resizingColumn;
     private double _resizeStartX;
     private double _resizeStartWidth;
+    private FileListColumnLayoutService? _columnLayoutService;
+    private FileListColumnWidths _effectiveColumnWidths = FileListColumnLayoutService.Defaults;
+    private bool _columnLayoutSubscribed;
     private CancellationTokenSource? _renameDelayCts;
     private bool _collapseSelectionOnRelease;
     private FileSystemEntry? _pressedEntry;
@@ -143,27 +148,43 @@ public partial class FileListView : UserControl
     private FileSystemEntry? _rightPressedEntry;
     private Control? _rightPressedAnchor;
     private bool _selectionSyncQueued;
+    private bool _entriesVisualRefreshQueued;
+    private Vector _pendingEntriesScrollOffset;
+    private int _scrollRestoreVersion;
+    private int _savedScrollOffsetAppliedVersion;
+    private bool _applyingViewModelEntries;
+    private bool _restoringNavigationSelection;
+    private bool _restoringNavigationSelectionToTop;
+    private bool _allowRestoreBringIntoView;
+    private DateTime _ignoreEmptySelectionUntilUtc;
 
     public FileListView()
     {
         InitializeComponent();
         GroupedListItems.ItemsSource = _groupedListRows;
         GridViewItems.ItemsSource = _gridRows;
-        SizeChanged += (_, _) => RebuildGridRowsIfColumnCountChanged();
+        SizeChanged += (_, _) =>
+        {
+            RebuildGridRowsIfColumnCountChanged();
+            ApplyListColumnWidths();
+        };
         AddHandler(PointerPressedEvent, OnDismissClick, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnGlobalPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(Control.RequestBringIntoViewEvent, OnRequestBringIntoView, RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        UnsubscribeColumnLayoutService();
         if (_subscribedViewModel != null)
         {
             _subscribedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _subscribedViewModel.SelectedEntries.CollectionChanged -= OnSelectedEntriesChanged;
             _subscribedViewModel.RenameRequested -= OnRenameRequested;
             _subscribedViewModel.ScrollToSelectionRequested -= OnScrollToSelectionRequested;
+            _subscribedViewModel.CaptureNavigationAnchorRequested -= OnCaptureNavigationAnchorRequested;
         }
         SubscribeEntriesCollection(null);
 
@@ -175,7 +196,10 @@ public partial class FileListView : UserControl
             _subscribedViewModel.SelectedEntries.CollectionChanged += OnSelectedEntriesChanged;
             _subscribedViewModel.RenameRequested += OnRenameRequested;
             _subscribedViewModel.ScrollToSelectionRequested += OnScrollToSelectionRequested;
+            _subscribedViewModel.CaptureNavigationAnchorRequested += OnCaptureNavigationAnchorRequested;
             SubscribeEntriesCollection(_subscribedViewModel.Entries);
+            _columnLayoutService = _subscribedViewModel.ColumnLayoutService;
+            SubscribeColumnLayoutService();
         }
 
         UpdateViewMode();
@@ -183,13 +207,52 @@ public partial class FileListView : UserControl
         RebuildPresentationRows();
         QueueSelectionSynchronization();
         UpdateCutStates();
+        ApplyListColumnWidths();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _columnLayoutService ??= ViewModel?.ColumnLayoutService;
+        SubscribeColumnLayoutService();
+        Dispatcher.UIThread.Post(ApplyListColumnWidths, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        UnsubscribeColumnLayoutService();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void SubscribeColumnLayoutService()
+    {
+        if (_columnLayoutSubscribed || _columnLayoutService == null)
+            return;
+
+        _columnLayoutService.PreferredWidthsChanged += OnPreferredColumnWidthsChanged;
+        _columnLayoutSubscribed = true;
+    }
+
+    private void UnsubscribeColumnLayoutService()
+    {
+        if (_columnLayoutSubscribed && _columnLayoutService != null)
+            _columnLayoutService.PreferredWidthsChanged -= OnPreferredColumnWidthsChanged;
+
+        _columnLayoutSubscribed = false;
+        _columnLayoutService = null;
+    }
+
+    private void OnPreferredColumnWidthsChanged(object? sender, EventArgs e)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyListColumnWidths();
+        else
+            Dispatcher.UIThread.Post(ApplyListColumnWidths);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(FileListViewModel.ViewMode)
-            or nameof(FileListViewModel.GroupField)
-            or nameof(FileListViewModel.Groups))
+        if (e.PropertyName == nameof(FileListViewModel.ViewMode))
         {
             UpdateViewMode();
             RebuildPresentationRows();
@@ -200,6 +263,13 @@ public partial class FileListView : UserControl
             });
         }
 
+        if (e.PropertyName is nameof(FileListViewModel.GroupField)
+            or nameof(FileListViewModel.Groups))
+        {
+            UpdateViewMode();
+            QueueEntriesVisualRefresh();
+        }
+
         if (e.PropertyName is nameof(FileListViewModel.SortField)
             or nameof(FileListViewModel.SortAscending))
         {
@@ -208,6 +278,14 @@ public partial class FileListView : UserControl
 
         if (e.PropertyName == nameof(FileListViewModel.Entries))
         {
+            if (ReferenceEquals(_subscribedEntries, ViewModel?.Entries))
+            {
+                UpdateEmptyState();
+                UpdateCutStates();
+                return;
+            }
+
+            _applyingViewModelEntries = true;
             SubscribeEntriesCollection(ViewModel?.Entries);
             var scrollMode = ViewModel?.ScrollBehaviorAfterLoad ?? FileListViewModel.ScrollMode.ResetToTop;
             var preservedOffset = GetActiveScrollViewer()?.Offset ?? default;
@@ -215,10 +293,24 @@ public partial class FileListView : UserControl
             RebuildPresentationRows();
             Dispatcher.UIThread.Post(() =>
             {
-                ApplyListColumnWidths();
-                QueueSelectionSynchronization();
-                ApplyScrollBehavior(scrollMode, preservedOffset);
-                UpdateCutStates();
+                try
+                {
+                    ApplyListColumnWidths();
+                    if (scrollMode == FileListViewModel.ScrollMode.RestoreNavigation)
+                    {
+                        ApplyScrollBehavior(scrollMode, preservedOffset);
+                    }
+                    else
+                    {
+                        SynchronizeSelectionControls();
+                        ApplyScrollBehavior(scrollMode, preservedOffset);
+                    }
+                    UpdateCutStates();
+                }
+                finally
+                {
+                    _applyingViewModelEntries = false;
+                }
             });
         }
 
@@ -242,8 +334,35 @@ public partial class FileListView : UserControl
     private void OnEntriesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         UpdateEmptyState();
-        UpdateCutStates();
-        RebuildPresentationRows();
+        QueueEntriesVisualRefresh();
+    }
+
+    private void QueueEntriesVisualRefresh()
+    {
+        if (_entriesVisualRefreshQueued)
+            return;
+
+        _entriesVisualRefreshQueued = true;
+        _pendingEntriesScrollOffset = GetActiveScrollViewer()?.Offset ?? default;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _entriesVisualRefreshQueued = false;
+            var usesPresentationRows = GridViewItems.IsVisible || GroupedListItems.IsVisible;
+            if (usesPresentationRows)
+                RebuildPresentationRows();
+
+            ApplyListColumnWidths();
+            UpdateCutStates();
+            QueueSelectionSynchronization();
+
+            if (usesPresentationRows)
+            {
+                var preservedOffset = _pendingEntriesScrollOffset;
+                Dispatcher.UIThread.Post(
+                    () => ApplyScrollBehavior(FileListViewModel.ScrollMode.PreservePosition, preservedOffset),
+                    DispatcherPriority.Loaded);
+            }
+        }, DispatcherPriority.Background);
     }
 
     private void UpdateCutStates()
@@ -429,52 +548,109 @@ public partial class FileListView : UserControl
 
     private void OnColumnResizePressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Border { Tag: string tag } handle || !int.TryParse(tag, out var column)) return;
+        if (sender is not Border { Tag: string tag } handle
+            || !TryGetFileListColumn(tag, out var column)
+            || _columnLayoutService == null)
+            return;
         if (!e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed) return;
 
         _resizingColumn = column;
         _resizeStartX = e.GetPosition(InteractionSurface).X;
-        _resizeStartWidth = ListHeaderGrid.ColumnDefinitions[column].ActualWidth;
+        _resizeStartWidth = _effectiveColumnWidths[column];
         e.Pointer.Capture(handle);
         e.Handled = true;
     }
 
     private void OnColumnResizeMoved(object? sender, PointerEventArgs e)
     {
-        if (_resizingColumn < 0 || sender is not Control handle || e.Pointer.Captured != handle) return;
-        var delta = _resizeStartX - e.GetPosition(InteractionSurface).X;
-        SetListColumnWidth(_resizingColumn, Math.Max(50, _resizeStartWidth + delta));
+        if (_resizingColumn is not { } column
+            || _columnLayoutService == null
+            || sender is not Control handle
+            || e.Pointer.Captured != handle)
+            return;
+
+        var delta = e.GetPosition(InteractionSurface).X - _resizeStartX;
+        var requested = _resizeStartWidth + delta;
+        var width = FileListColumnLayoutService.ClampInteractiveWidth(
+            column,
+            requested,
+            _effectiveColumnWidths,
+            GetAvailableDataWidth());
+        _columnLayoutService.Preview(column, width);
         e.Handled = true;
     }
 
     private void OnColumnResizeReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_resizingColumn < 0) return;
-        _resizingColumn = -1;
+        if (_resizingColumn is not { } column) return;
+        _resizingColumn = null;
         e.Pointer.Capture(null);
+        _columnLayoutService?.Commit(column);
         e.Handled = true;
     }
 
-    private void SetListColumnWidth(int column, double width)
+    private void OnColumnResizeDoubleTapped(object? sender, TappedEventArgs e)
     {
-        ListHeaderGrid.ColumnDefinitions[column].Width = new GridLength(width);
-        ApplyListColumnWidths();
+        if (sender is not Border { Tag: string tag }
+            || !TryGetFileListColumn(tag, out var column))
+            return;
+
+        _resizingColumn = null;
+        _columnLayoutService?.Reset(column);
+        e.Handled = true;
     }
 
     private void ApplyListColumnWidths()
     {
-        var widths = ListHeaderGrid.ColumnDefinitions.Select(definition => definition.ActualWidth).ToArray();
+        var preferred = _columnLayoutService?.PreferredWidths ?? FileListColumnLayoutService.Defaults;
+        _effectiveColumnWidths = FileListColumnLayoutService.CalculateEffective(
+            preferred,
+            GetAvailableDataWidth());
+
+        for (var column = 1; column <= 4 && column < ListHeaderGrid.ColumnDefinitions.Count; column++)
+            ListHeaderGrid.ColumnDefinitions[column].Width = new GridLength(
+                _effectiveColumnWidths[(FileListColumn)(column - 1)]);
+
         foreach (var grid in this.GetVisualDescendants().OfType<Grid>()
                      .Where(grid => grid.Classes.Contains("file-list-row-grid")))
+            ApplyColumnWidthsToRow(grid);
+    }
+
+    private void OnFileListRowLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Grid grid)
+            ApplyColumnWidthsToRow(grid);
+    }
+
+    private void ApplyColumnWidthsToRow(Grid grid)
+    {
+        for (var column = 1; column <= 4 && column < grid.ColumnDefinitions.Count; column++)
+            grid.ColumnDefinitions[column].Width = new GridLength(
+                _effectiveColumnWidths[(FileListColumn)(column - 1)]);
+    }
+
+    private double GetAvailableDataWidth()
+    {
+        const double iconColumnWidth = 22;
+        var headerWidth = ListHeaderGrid.Bounds.Width;
+        if (headerWidth <= 0)
+            headerWidth = Math.Max(0, Bounds.Width - 24);
+
+        return headerWidth > iconColumnWidth
+            ? headerWidth - iconColumnWidth
+            : FileListColumnLayoutService.Defaults.Total;
+    }
+
+    private static bool TryGetFileListColumn(string tag, out FileListColumn column)
+    {
+        if (int.TryParse(tag, out var gridColumn) && gridColumn is >= 1 and <= 4)
         {
-            for (var column = 2; column <= 4 && column < grid.ColumnDefinitions.Count; column++)
-            {
-                var width = ListHeaderGrid.ColumnDefinitions[column].Width;
-                grid.ColumnDefinitions[column].Width = width.IsAbsolute
-                    ? width
-                    : new GridLength(widths[column]);
-            }
+            column = (FileListColumn)(gridColumn - 1);
+            return true;
         }
+
+        column = default;
+        return false;
     }
 
     private void ApplyScrollBehavior(FileListViewModel.ScrollMode mode, Vector preservedOffset)
@@ -489,9 +665,7 @@ public partial class FileListView : UserControl
                 break;
             case FileListViewModel.ScrollMode.RestoreNavigation:
             case FileListViewModel.ScrollMode.ScrollToSelected:
-                BringSelectedEntryIntoView();
-                if (ViewModel != null)
-                    ViewModel.ScrollBehaviorAfterLoad = FileListViewModel.ScrollMode.PreservePosition;
+                QueueBringSelectedEntryIntoView(mode == FileListViewModel.ScrollMode.RestoreNavigation);
                 break;
             default:
                 scroll.Offset = new Vector(0, 0);
@@ -508,25 +682,302 @@ public partial class FileListView : UserControl
         return host.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
     }
 
-    private void BringSelectedEntryIntoView()
+    private void QueueBringSelectedEntryIntoView(bool restoreSavedViewport)
     {
-        if (ViewModel?.SelectedEntries.FirstOrDefault() is not { } selected) return;
+        var version = ++_scrollRestoreVersion;
+        _restoringNavigationSelection = true;
+        _restoringNavigationSelectionToTop = restoreSavedViewport;
+        _ = RestoreSelectedEntryPositionAsync(version, restoreSavedViewport);
+    }
+
+    private async Task RestoreSelectedEntryPositionAsync(int version, bool restoreSavedViewport)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var result = await Dispatcher.UIThread.InvokeAsync(
+                () => TryRestoreSelectedEntryPosition(version, restoreSavedViewport),
+                DispatcherPriority.Background);
+
+            if (result == ScrollRestoreResult.Cancelled)
+            {
+                if (version == _scrollRestoreVersion)
+                {
+                    _restoringNavigationSelection = false;
+                    _restoringNavigationSelectionToTop = false;
+                }
+                return;
+            }
+
+            if (result == ScrollRestoreResult.NoAnchor)
+            {
+                CompleteScrollRestore(version);
+                return;
+            }
+
+            if (result == ScrollRestoreResult.Aligned)
+            {
+                CompleteScrollRestore(version);
+                return;
+            }
+
+            await Task.Delay(16);
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(
+            () => CompleteRestoreWithBestEffort(version, restoreSavedViewport),
+            DispatcherPriority.Background);
+    }
+
+    private enum ScrollRestoreResult
+    {
+        Pending,
+        Aligned,
+        NoAnchor,
+        Cancelled
+    }
+
+    private ScrollRestoreResult TryRestoreSelectedEntryPosition(int version, bool restoreSavedViewport)
+    {
+        if (version != _scrollRestoreVersion || ViewModel == null)
+            return ScrollRestoreResult.Cancelled;
+
+        var selected = ViewModel.SelectedEntries.FirstOrDefault();
+        if (selected == null)
+            return ScrollRestoreResult.NoAnchor;
+
+        if (restoreSavedViewport)
+        {
+            if (_savedScrollOffsetAppliedVersion != version
+                && ViewModel.RestoredNavigationScrollOffsetY is { } savedOffset)
+            {
+                if (!TryApplySavedScrollOffset(savedOffset))
+                    return ScrollRestoreResult.Pending;
+
+                _savedScrollOffsetAppliedVersion = version;
+                return ScrollRestoreResult.Pending;
+            }
+
+            if (FindVisibleEntryContent(selected) == null)
+            {
+                TryBringSelectedEntryIntoView(selected);
+                return ScrollRestoreResult.Pending;
+            }
+
+            SynchronizeSelectionControls();
+            if (ViewModel.RestoredNavigationAnchorViewportY != null
+                && !AlignSelectedEntryToSavedViewportPosition())
+            {
+                return ScrollRestoreResult.Pending;
+            }
+
+            return ScrollRestoreResult.Aligned;
+        }
+
+        if (FindVisibleEntryContent(selected) == null)
+        {
+            TryBringSelectedEntryIntoView(selected);
+            return ScrollRestoreResult.Pending;
+        }
+
+        SynchronizeSelectionControls();
+
+        return ScrollRestoreResult.NoAnchor;
+    }
+
+    private void CompleteRestoreWithBestEffort(int version, bool restoreSavedViewport)
+    {
+        if (version != _scrollRestoreVersion || ViewModel == null)
+            return;
+
+        if (restoreSavedViewport)
+        {
+            if (_savedScrollOffsetAppliedVersion != version
+                && ViewModel.RestoredNavigationScrollOffsetY is { } savedOffset)
+            {
+                TryApplySavedScrollOffset(savedOffset);
+            }
+
+            if (!AlignSelectedEntryToSavedViewportPosition())
+                TryBringSelectedEntryIntoView();
+            CompleteScrollRestore(version);
+            return;
+        }
+
+        TryBringSelectedEntryIntoView();
+        CompleteScrollRestore(version);
+    }
+
+    private void CompleteScrollRestore(int version)
+    {
+        if (version != _scrollRestoreVersion || ViewModel == null)
+            return;
+
+        ViewModel.ScrollBehaviorAfterLoad = FileListViewModel.ScrollMode.PreservePosition;
+        _restoringNavigationSelection = false;
+        _restoringNavigationSelectionToTop = false;
+        _ignoreEmptySelectionUntilUtc = DateTime.UtcNow.AddMilliseconds(250);
+    }
+
+    private void OnRequestBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
+    {
+        if (_allowRestoreBringIntoView || !IsRestoringNavigationSelectionToTop())
+            return;
+
+        if (e.Source is Visual visual && !IsWithinVisual(visual, FileScroll))
+            return;
+
+        // Selection and container realization can request their own scrolling.
+        // The restore loop owns the saved offset and anchor, so suppress those
+        // competing requests instead of scheduling another position write.
+        e.Handled = true;
+    }
+
+    private bool IsRestoringNavigationSelectionToTop()
+        => _restoringNavigationSelectionToTop
+           || ViewModel?.ScrollBehaviorAfterLoad == FileListViewModel.ScrollMode.RestoreNavigation
+           || DateTime.UtcNow <= _ignoreEmptySelectionUntilUtc;
+
+    private bool BringSelectedEntryIntoView()
+    {
+        var version = ++_scrollRestoreVersion;
+        var restoreSavedViewport = ViewModel?.ScrollBehaviorAfterLoad == FileListViewModel.ScrollMode.RestoreNavigation;
+        _restoringNavigationSelection = true;
+        _restoringNavigationSelectionToTop = restoreSavedViewport;
+        var result = TryRestoreSelectedEntryPosition(version, restoreSavedViewport);
+        if (result == ScrollRestoreResult.Pending)
+        {
+            _ = RestoreSelectedEntryPositionAsync(version, restoreSavedViewport);
+        }
+        else if (result == ScrollRestoreResult.NoAnchor || result == ScrollRestoreResult.Aligned)
+        {
+            CompleteScrollRestore(version);
+        }
+        return result != ScrollRestoreResult.Pending && result != ScrollRestoreResult.Cancelled;
+    }
+
+    private static bool IsSameEntry(FileSystemEntry left, FileSystemEntry right)
+        => ReferenceEquals(left, right)
+           || string.Equals(left.FullPath, right.FullPath, StringComparison.Ordinal);
+
+    private bool TryBringSelectedEntryIntoView(FileSystemEntry? selected = null)
+    {
+        selected ??= ViewModel?.SelectedEntries.FirstOrDefault();
+        if (selected == null) return false;
 
         if (FileItemsList.IsVisible)
         {
-            FileItemsList.ScrollIntoView(selected);
+            if (!FileItemsList.Items.Contains(selected))
+                return false;
+            ScrollIntoViewForRestore(FileItemsList, selected);
+            return true;
         }
         else if (GroupedListItems.IsVisible
                  && _groupedRowByPath.TryGetValue(selected.FullPath, out var groupedRow))
         {
-            GroupedListItems.ScrollIntoView(groupedRow);
+            ScrollIntoViewForRestore(GroupedListItems, groupedRow);
+            return true;
         }
         else if (GridViewItems.IsVisible
                  && _gridRowByPath.TryGetValue(selected.FullPath, out var gridRow))
         {
-            GridViewItems.ScrollIntoView(gridRow);
+            ScrollIntoViewForRestore(GridViewItems, gridRow);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void ScrollIntoViewForRestore(ListBox listBox, object item)
+    {
+        _allowRestoreBringIntoView = true;
+        try
+        {
+            listBox.ScrollIntoView(item);
+        }
+        finally
+        {
+            _allowRestoreBringIntoView = false;
         }
     }
+
+    private void OnCaptureNavigationAnchorRequested()
+    {
+        var (viewportY, scrollOffsetY) = CaptureSelectedEntryNavigationAnchor();
+        ViewModel?.SaveCurrentNavigationAnchor(viewportY, scrollOffsetY);
+    }
+
+    private (double? ViewportY, double? ScrollOffsetY) CaptureSelectedEntryNavigationAnchor()
+    {
+        var scroll = GetActiveScrollViewer();
+        if (ViewModel?.SelectedEntries.FirstOrDefault() is not { } selected)
+            return (null, scroll?.Offset.Y);
+
+        var visual = FindVisibleEntryContent(selected);
+        if (scroll == null)
+            return (null, null);
+        if (visual == null)
+            return (null, scroll.Offset.Y);
+
+        return (visual.TranslatePoint(new Point(0, 0), scroll)?.Y, scroll.Offset.Y);
+    }
+
+    private bool TryApplySavedScrollOffset(double savedOffsetY)
+    {
+        var scroll = GetActiveScrollViewer();
+        if (scroll == null || scroll.Viewport.Height <= 0)
+            return false;
+
+        var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+        if (scroll.Extent.Height <= 0 && ViewModel?.Entries.Count > 0)
+            return false;
+
+        scroll.Offset = new Vector(scroll.Offset.X, Math.Clamp(savedOffsetY, 0, maxOffset));
+        return true;
+    }
+
+    private bool AlignSelectedEntryToSavedViewportPosition()
+    {
+        var viewModel = ViewModel;
+        var targetY = viewModel?.RestoredNavigationAnchorViewportY;
+        if (viewModel == null || targetY == null || viewModel.SelectedEntries.FirstOrDefault() is not { } selected)
+            return false;
+
+        var scroll = GetActiveScrollViewer();
+        var visual = FindVisibleEntryContent(selected);
+        if (scroll == null || visual == null)
+            return false;
+
+        var point = visual.TranslatePoint(new Point(0, 0), scroll);
+        if (point == null)
+            return false;
+
+        var maxOffset = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+        var desiredOffsetY = scroll.Offset.Y + point.Value.Y - targetY.Value;
+        scroll.Offset = new Vector(scroll.Offset.X, Math.Clamp(desiredOffsetY, 0, maxOffset));
+        return true;
+    }
+
+    private Control? FindVisibleEntryContent(FileSystemEntry entry)
+    {
+        var host = FileItemsList.IsVisible ? (Control)FileItemsList
+            : GridViewItems.IsVisible ? GridViewItems
+            : GroupedListItems.IsVisible ? GroupedListItems
+            : GroupedGridItems;
+
+        return host.GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control =>
+                IsEntryDataContext(control.DataContext, entry)
+                && control.Classes.Contains("entry-content"))
+            ?? host.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(control => IsEntryDataContext(control.DataContext, entry));
+    }
+
+    private static bool IsEntryDataContext(object? dataContext, FileSystemEntry entry)
+        => ReferenceEquals(dataContext, entry)
+           || (dataContext is FileSystemEntry candidate
+               && string.Equals(candidate.FullPath, entry.FullPath, StringComparison.Ordinal));
 
     private void OnSelectedEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -555,23 +1006,24 @@ public partial class FileListView : UserControl
         if (index < 0) return;
 
         var isGridIconLabel = label.FindAncestorOfType<Border>()?.Classes.Contains("file-grid-content") == true;
+        var editorWidth = GetInlineRenameEditorWidth(label, parent, isGridIconLabel);
         var editor = new TextBox
         {
             Text = entry.Name,
             FontSize = label.FontSize,
             Margin = label.Margin,
             HorizontalAlignment = isGridIconLabel
-                ? global::Avalonia.Layout.HorizontalAlignment.Stretch
-                : label.HorizontalAlignment,
+                ? global::Avalonia.Layout.HorizontalAlignment.Center
+                : global::Avalonia.Layout.HorizontalAlignment.Left,
             VerticalAlignment = label.VerticalAlignment,
             VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
-            MinWidth = 60,
+            TextAlignment = isGridIconLabel ? TextAlignment.Center : TextAlignment.Left,
+            MinWidth = isGridIconLabel ? 0 : 72,
             MinHeight = 0,
             Height = 22,
-            Width = isGridIconLabel && parent.Bounds.Width > 0 ? parent.Bounds.Width : double.NaN,
-            Padding = new Thickness(4, 0),
-            BorderThickness = new Thickness(1)
+            Width = editorWidth
         };
+        editor.Classes.Add("inline-rename-editor");
         if (parent is Grid)
         {
             Grid.SetColumn(editor, Grid.GetColumn(label));
@@ -610,6 +1062,37 @@ public partial class FileListView : UserControl
         });
     }
 
+    private static double GetInlineRenameEditorWidth(TextBlock label, Panel parent, bool isGridIconLabel)
+    {
+        if (isGridIconLabel)
+            return parent.Bounds.Width > 0 ? parent.Bounds.Width : 84;
+
+        var availableWidth = 320d;
+        if (parent is Grid grid)
+        {
+            var column = Grid.GetColumn(label);
+            if (column >= 0 && column < grid.ColumnDefinitions.Count)
+            {
+                var columnWidth = grid.ColumnDefinitions[column].ActualWidth;
+                if (columnWidth > 0)
+                {
+                    const double trailingGap = 4;
+                    availableWidth = columnWidth - label.Margin.Left - label.Margin.Right - trailingGap;
+                }
+            }
+        }
+        else if (parent.Bounds.Width > 0)
+        {
+            availableWidth = parent.Bounds.Width - label.Margin.Left - label.Margin.Right;
+        }
+
+        const double minimumWidth = 72;
+        const double editorChromeWidth = 12;
+        var maximumWidth = Math.Max(minimumWidth, availableWidth);
+        var desiredWidth = Math.Ceiling(label.TextLayout.WidthIncludingTrailingWhitespace + editorChromeWidth);
+        return Math.Clamp(desiredWidth, minimumWidth, maximumWidth);
+    }
+
     private static bool IsEntryNameLabelFor(TextBlock text, FileSystemEntry entry)
     {
         if (text.DataContext is not FileSystemEntry candidate)
@@ -627,12 +1110,19 @@ public partial class FileListView : UserControl
         var renamePath = _activeRenamePath ?? entry.FullPath;
         var newName = _renameEditor.Text?.Trim() ?? string.Empty;
         SuppressImmediateSlowRename(renamePath);
-        RestoreRenameLabel();
-
-        if (commit && newName.Length > 0 && !string.Equals(newName, entry.Name, StringComparison.Ordinal))
-            await ViewModel!.RenameEntryAsync(entry, newName);
-
-        _finishingRename = false;
+        try
+        {
+            if (commit && newName.Length > 0 && !string.Equals(newName, entry.Name, StringComparison.Ordinal))
+                await ViewModel!.RenameEntryAsync(entry, newName);
+        }
+        finally
+        {
+            // Keep the editor (and the submitted name) visible while the file
+            // operation runs. Restoring afterward binds the label to the final
+            // entry instead of briefly painting the old name.
+            RestoreRenameLabel();
+            _finishingRename = false;
+        }
     }
 
     private void CancelActiveRename()
@@ -1728,6 +2218,18 @@ public partial class FileListView : UserControl
             return;
 
         var selected = listBox.SelectedItems?.OfType<FileSystemEntry>().ToList() ?? [];
+        if (selected.Count == 0
+            && ViewModel.SelectedEntries.Count > 0
+            && (_applyingViewModelEntries
+                || _restoringNavigationSelection
+                || DateTime.UtcNow <= _ignoreEmptySelectionUntilUtc
+                || ViewModel.ScrollBehaviorAfterLoad is FileListViewModel.ScrollMode.RestoreNavigation
+                    or FileListViewModel.ScrollMode.ScrollToSelected))
+        {
+            e.Handled = true;
+            return;
+        }
+
         ViewModel.SetSelection(selected, selected.LastOrDefault());
     }
 
@@ -1759,10 +2261,20 @@ public partial class FileListView : UserControl
             foreach (var listBox in GetActiveSelectionLists())
             {
                 if (listBox.SelectedItems == null) continue;
+                var desiredItems = listBox.Items
+                    .OfType<FileSystemEntry>()
+                    .Where(entry => selectedPaths.Contains(entry.FullPath))
+                    .ToList();
+                var currentItems = listBox.SelectedItems.OfType<FileSystemEntry>().ToList();
+                if (currentItems.Count == desiredItems.Count
+                    && currentItems.SequenceEqual(desiredItems))
+                {
+                    continue;
+                }
+
                 listBox.SelectedItems.Clear();
-                foreach (var entry in listBox.Items.OfType<FileSystemEntry>())
-                    if (selectedPaths.Contains(entry.FullPath))
-                        listBox.SelectedItems.Add(entry);
+                foreach (var entry in desiredItems)
+                    listBox.SelectedItems.Add(entry);
             }
         }
         finally
@@ -1780,6 +2292,10 @@ public partial class FileListView : UserControl
         Dispatcher.UIThread.Post(() =>
         {
             _selectionSyncQueued = false;
+            if (_restoringNavigationSelection
+                || ViewModel?.ScrollBehaviorAfterLoad == FileListViewModel.ScrollMode.RestoreNavigation)
+                return;
+
             SynchronizeSelectionControls();
         }, DispatcherPriority.Background);
     }
@@ -1824,7 +2340,6 @@ public partial class FileListView : UserControl
         GroupedListItems.IsVisible = !isGrid && isGrouped;
         GridViewItems.IsVisible = isGrid;
         GroupedGridItems.IsVisible = false;
-        if (isGrid) RebuildPresentationRows();
         ListHeaderPanel.IsVisible = !isGrid;
         UpdateSortHeaders();
     }
@@ -1839,7 +2354,11 @@ public partial class FileListView : UserControl
         {
             foreach (var group in ViewModel.Groups)
             {
-                _groupedListRows.Add(new FileListPresentationRow { GroupName = group.Name });
+                _groupedListRows.Add(new FileListPresentationRow
+                {
+                    GroupName = group.Name,
+                    GroupItemCount = group.Entries.Count
+                });
                 foreach (var entry in group.Entries)
                 {
                     var row = new FileListPresentationRow { Entry = entry };
@@ -1876,7 +2395,11 @@ public partial class FileListView : UserControl
         foreach (var (header, entries) in groups)
         {
             if (header != null)
-                _gridRows.Add(new FileGridPresentationRow { GroupName = header });
+                _gridRows.Add(new FileGridPresentationRow
+                {
+                    GroupName = header,
+                    GroupItemCount = entries.Count
+                });
             for (var i = 0; i < entries.Count; i += columns)
             {
                 var row = new FileGridPresentationRow
@@ -1925,7 +2448,11 @@ public partial class FileListView : UserControl
     {
         if (sender is not Control { DataContext: FileSystemEntry entry } || ViewModel == null) return;
         CancelSlowRename();
-        if (entry.IsDirectory) _ = ViewModel.NavigateToAsync(entry.FullPath);
+        if (entry.IsDirectory)
+        {
+            ViewModel.SetSelection([entry], entry);
+            _ = ViewModel.NavigateToAsync(entry.FullPath);
+        }
         else _ = ViewModel.OpenEntryAsync(entry);
         e.Handled = true;
     }

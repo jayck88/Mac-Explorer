@@ -22,6 +22,12 @@ public interface IDirectoryChangeNotifier
     /// </summary>
     void SuppressRefresh(string[] directoryPaths, TimeSpan duration);
 
+    /// <summary>
+    /// Temporarily suppress refreshes only for one ViewModel. Other windows that
+    /// display the same directory still receive the change notification.
+    /// </summary>
+    void SuppressRefreshFor(FileListViewModel vm, string[] directoryPaths, TimeSpan duration);
+
     /// <summary>Register a VM (call on window init).</summary>
     void Subscribe(FileListViewModel vm);
 

@@ -118,13 +118,15 @@
         </ControlTheme>
 
         <DataTemplate x:Key="ListEntryTemplate" x:DataType="models:FileSystemEntry">
-            <Border Classes="file-list-entry entry-content" CornerRadius="4" Padding="12,3"
+            <Border Classes="file-list-entry entry-content" Classes.selected="{Binding IsSelected}"
+                    CornerRadius="4" Padding="12,3"
                     Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}"
                     PointerPressed="OnListItemPointerPressed"
                     PointerMoved="OnItemPointerMoved"
                     PointerReleased="OnItemPointerReleased"
                     DoubleTapped="OnFileItemDoubleTapped">
-                <Grid Classes="file-list-row-grid" ColumnDefinitions="Auto,*,160,100,80">
+                <Grid Classes="file-list-row-grid" ColumnDefinitions="22,420,170,110,110,*"
+                      Loaded="OnFileListRowLoaded">
                     <Grid Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center">
                         <Image Classes="entry-icon-image"
                                Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=24}"
@@ -158,7 +160,8 @@
         </DataTemplate>
 
         <DataTemplate x:Key="GridEntryTemplate" x:DataType="models:FileSystemEntry">
-            <Border Classes="file-grid-content entry-content" Width="100" Margin="4"
+            <Border Classes="file-grid-content entry-content" Classes.selected="{Binding IsSelected}"
+                    Width="100" Margin="4"
                     Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}"
                     PointerPressed="OnGridItemPointerPressed"
                     PointerMoved="OnItemPointerMoved"
@@ -192,9 +195,14 @@
 
         <DataTemplate x:Key="GroupedListRowTemplate" x:DataType="local:FileListPresentationRow">
             <Grid Background="{DynamicResource ColorBgContent}">
-                <Border IsVisible="{Binding IsGroupHeader}"
+                <Border IsVisible="{Binding IsGroupHeader}" Classes="file-group-row"
                         Background="{DynamicResource ColorBgContent}">
-                    <TextBlock Text="{Binding GroupName}" Classes="file-group-header"/>
+                    <Grid ColumnDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Column="0" Text="{Binding GroupName}" Classes="file-group-header"/>
+                        <TextBlock Grid.Column="1" Text="{Binding GroupItemCount, StringFormat='· {0} 项'}"
+                                   Classes="file-group-count"/>
+                        <Border Grid.Column="2" Classes="file-group-divider"/>
+                    </Grid>
                 </Border>
                 <ListBox Classes="file-list grouped-file-list-row"
                          Background="{DynamicResource ColorBgContent}"
@@ -209,9 +217,14 @@
 
         <DataTemplate x:Key="GridRowTemplate" x:DataType="local:FileGridPresentationRow">
             <Grid Background="{DynamicResource ColorBgContent}">
-                <Border IsVisible="{Binding IsGroupHeader}"
+                <Border IsVisible="{Binding IsGroupHeader}" Classes="file-group-row"
                         Background="{DynamicResource ColorBgContent}">
-                    <TextBlock Text="{Binding GroupName}" Classes="file-group-header"/>
+                    <Grid ColumnDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Column="0" Text="{Binding GroupName}" Classes="file-group-header"/>
+                        <TextBlock Grid.Column="1" Text="{Binding GroupItemCount, StringFormat='· {0} 项'}"
+                                   Classes="file-group-count"/>
+                        <Border Grid.Column="2" Classes="file-group-divider"/>
+                    </Grid>
                 </Border>
                 <ListBox Classes="file-grid file-grid-row"
                          Background="{DynamicResource ColorBgContent}"
@@ -238,11 +251,60 @@
         <Style Selector="Border.file-list-entry:pointerover">
             <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
         </Style>
+        <Style Selector="Border.file-list-entry.selected">
+            <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+        </Style>
         <Style Selector="ListBoxItem:selected Border.file-list-entry">
             <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
         </Style>
+        <Style Selector="Border.file-list-entry.selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+        </Style>
         <Style Selector="ListBoxItem:selected Border.file-list-entry:pointerover">
             <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+        </Style>
+        <Style Selector="Border.file-grid-content">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.file-grid-content:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        </Style>
+        <Style Selector="Border.file-grid-content.selected">
+            <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+        </Style>
+        <Style Selector="Border.file-grid-content.selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+        </Style>
+
+        <!-- Inline rename is intentionally compact: it should read as an editing state
+             of the filename, not as a full-width form field. -->
+        <Style Selector="TextBox.inline-rename-editor">
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+            <Setter Property="Padding" Value="5,0"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource ColorAccentMedium}"/>
+            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource ColorTextPrimary}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource ColorAccent}"/>
+        </Style>
+        <Style Selector="TextBox.inline-rename-editor:pointerover, TextBox.inline-rename-editor:focus">
+            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TextBox.inline-rename-editor /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+        </Style>
+        <Style Selector="TextBox.inline-rename-editor:pointerover /template/ Border#PART_BorderElement, TextBox.inline-rename-editor:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
         <Style Selector="Border.entry-content.drag-over">
@@ -258,30 +320,39 @@
                 BorderBrush="{DynamicResource ColorDivider}"
                 BorderThickness="0,0,0,1"
                 CornerRadius="4,4,0,0" Margin="0">
-            <Grid x:Name="ListHeaderGrid" ColumnDefinitions="Auto,*,160,100,80">
+            <Grid x:Name="ListHeaderGrid" ColumnDefinitions="22,420,170,110,110,*">
                 <TextBlock Grid.Column="1" x:Name="NameHeader" Text="名称" Classes="file-column-header"
-                           Margin="38,0,0,0" PointerPressed="OnSortByName"/>
+                           Margin="8,0,0,0" PointerPressed="OnSortByName"/>
                 <TextBlock Grid.Column="2" x:Name="ModifiedHeader" Text="修改日期" Classes="file-column-header"
                            PointerPressed="OnSortByModified"/>
                 <TextBlock Grid.Column="3" x:Name="SizeHeader" Text="大小" Classes="file-column-header"
                            PointerPressed="OnSortBySize"/>
                 <TextBlock Grid.Column="4" x:Name="TypeHeader" Text="类型" Classes="file-column-header"
                            PointerPressed="OnSortByType"/>
-                <Border Grid.Column="2" Tag="2" Width="8" HorizontalAlignment="Left"
+                <Border Grid.Column="2" Tag="1" Width="8" HorizontalAlignment="Left"
                         Background="Transparent" Cursor="SizeWestEast"
                         PointerPressed="OnColumnResizePressed"
                         PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"/>
-                <Border Grid.Column="3" Tag="3" Width="8" HorizontalAlignment="Left"
+                        PointerReleased="OnColumnResizeReleased"
+                        DoubleTapped="OnColumnResizeDoubleTapped"/>
+                <Border Grid.Column="3" Tag="2" Width="8" HorizontalAlignment="Left"
                         Background="Transparent" Cursor="SizeWestEast"
                         PointerPressed="OnColumnResizePressed"
                         PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"/>
-                <Border Grid.Column="4" Tag="4" Width="8" HorizontalAlignment="Left"
+                        PointerReleased="OnColumnResizeReleased"
+                        DoubleTapped="OnColumnResizeDoubleTapped"/>
+                <Border Grid.Column="4" Tag="3" Width="8" HorizontalAlignment="Left"
                         Background="Transparent" Cursor="SizeWestEast"
                         PointerPressed="OnColumnResizePressed"
                         PointerMoved="OnColumnResizeMoved"
-                        PointerReleased="OnColumnResizeReleased"/>
+                        PointerReleased="OnColumnResizeReleased"
+                        DoubleTapped="OnColumnResizeDoubleTapped"/>
+                <Border Grid.Column="5" Tag="4" Width="8" HorizontalAlignment="Left"
+                        Background="Transparent" Cursor="SizeWestEast"
+                        PointerPressed="OnColumnResizePressed"
+                        PointerMoved="OnColumnResizeMoved"
+                        PointerReleased="OnColumnResizeReleased"
+                        DoubleTapped="OnColumnResizeDoubleTapped"/>
             </Grid>
         </Border>
 

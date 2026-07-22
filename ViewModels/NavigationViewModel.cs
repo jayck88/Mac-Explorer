@@ -6,6 +6,21 @@ using MacExplorer.Services;
 
 namespace MacExplorer.ViewModels;
 
+public sealed class NavigationHistoryEntry
+{
+    public string Path { get; set; } = string.Empty;
+    public bool IsHomePage { get; set; }
+    public bool IsSearchMode { get; set; }
+    public string SearchQuery { get; set; } = string.Empty;
+    public string? SearchRootPath { get; set; }
+    public bool WasHomePageBeforeSearch { get; set; }
+    public IReadOnlyList<FileSystemEntry> SearchResults { get; set; } = [];
+    public string? SelectedEntryPath { get; set; }
+    public string? SelectedEntryName { get; set; }
+    public double? SelectedEntryViewportY { get; set; }
+    public double? SelectedEntryScrollOffsetY { get; set; }
+}
+
 public partial class NavigationViewModel : ObservableObject
 {
     private readonly IFileService _fileService;
@@ -14,7 +29,7 @@ public partial class NavigationViewModel : ObservableObject
     private readonly IDisplayNameService? _displayNameService;
 
     // Navigation history
-    private readonly List<string> _historyStack = [];
+    private readonly List<NavigationHistoryEntry> _historyStack = [];
     private int _historyIndex = -1;
     private bool _isNavigatingHistory;
     private readonly Dictionary<string, string?> _pathSelectedEntries = new();
@@ -33,6 +48,10 @@ public partial class NavigationViewModel : ObservableObject
 
     public bool CanGoBack => _historyIndex > 0;
     public bool CanGoForward => _historyIndex < _historyStack.Count - 1;
+    public NavigationHistoryEntry? CurrentHistoryEntry
+        => _historyIndex >= 0 && _historyIndex < _historyStack.Count
+            ? _historyStack[_historyIndex]
+            : null;
 
     // Navigation mode flags - these are checked by the coordinator
     [ObservableProperty]
@@ -95,6 +114,7 @@ public partial class NavigationViewModel : ObservableObject
     public bool NeedsRefreshFromNotification(bool isArchiveView, bool isAiView, bool isCollectionView)
     {
         return !isArchiveView && !isAiView && !isCollectionView && !IsSearchMode
+            && !TagPathHelper.IsTagPath(CurrentPath)
             && !string.IsNullOrEmpty(CurrentPath);
     }
 
@@ -116,7 +136,7 @@ public partial class NavigationViewModel : ObservableObject
             return; // Coordinator will set status
         }
 
-        if (CurrentPath == path) return;
+        if (CurrentPath == path && !IsSearchMode) return;
 
         // When navigating to a normal filesystem path from a special view,
         // reset the special view flags and associated state
@@ -144,15 +164,12 @@ public partial class NavigationViewModel : ObservableObject
         if (!_isNavigatingHistory)
         {
             // Trim forward history when navigating to a new path
-            if (_historyIndex < _historyStack.Count - 1)
-                _historyStack.RemoveRange(_historyIndex + 1, _historyStack.Count - _historyIndex - 1);
-            _historyStack.Add(path);
-            _historyIndex = _historyStack.Count - 1;
-            OnPropertyChanged(nameof(CanGoBack));
-            OnPropertyChanged(nameof(CanGoForward));
+            PushHistoryEntry(CreatePathHistoryEntry(path));
         }
 
         IsHomePage = false;
+        IsSearchMode = false;
+        SearchQuery = string.Empty;
         CurrentPath = path;
         UpdateBreadcrumbs(path);
 
@@ -174,9 +191,8 @@ public partial class NavigationViewModel : ObservableObject
         if (!CanGoBack) return Task.CompletedTask;
         _historyIndex--;
         _isNavigatingHistory = true;
-        CurrentPath = _historyStack[_historyIndex];
-        OnPropertyChanged(nameof(CanGoBack));
-        OnPropertyChanged(nameof(CanGoForward));
+        ApplyHistoryEntry(_historyStack[_historyIndex]);
+        NotifyHistoryChanged();
         return Task.CompletedTask;
     }
 
@@ -186,9 +202,8 @@ public partial class NavigationViewModel : ObservableObject
         if (!CanGoForward) return Task.CompletedTask;
         _historyIndex++;
         _isNavigatingHistory = true;
-        CurrentPath = _historyStack[_historyIndex];
-        OnPropertyChanged(nameof(CanGoBack));
-        OnPropertyChanged(nameof(CanGoForward));
+        ApplyHistoryEntry(_historyStack[_historyIndex]);
+        NotifyHistoryChanged();
         return Task.CompletedTask;
     }
 
@@ -226,18 +241,89 @@ public partial class NavigationViewModel : ObservableObject
     {
         if (!_isNavigatingHistory)
         {
-            if (_historyIndex < _historyStack.Count - 1)
-                _historyStack.RemoveRange(_historyIndex + 1, _historyStack.Count - _historyIndex - 1);
-            _historyStack.Add(sentinelPath);
-            _historyIndex = _historyStack.Count - 1;
-            OnPropertyChanged(nameof(CanGoBack));
-            OnPropertyChanged(nameof(CanGoForward));
+            PushHistoryEntry(CreatePathHistoryEntry(sentinelPath));
         }
+    }
+
+    public void PushOrReplaceSearchHistory(
+        string query,
+        string? searchRootPath,
+        bool wasHomePageBeforeSearch,
+        IReadOnlyList<FileSystemEntry> searchResults)
+    {
+        var current = CurrentHistoryEntry;
+        if (current?.IsSearchMode == true)
+        {
+            UpdateSearchHistoryEntry(current, query, searchRootPath, wasHomePageBeforeSearch, searchResults);
+            TrimForwardHistory();
+            NotifyHistoryChanged();
+            return;
+        }
+
+        var entry = new NavigationHistoryEntry
+        {
+            Path = CurrentPath,
+            IsHomePage = false,
+            IsSearchMode = true,
+            SearchQuery = query,
+            SearchRootPath = searchRootPath,
+            WasHomePageBeforeSearch = wasHomePageBeforeSearch,
+            SearchResults = searchResults.ToArray()
+        };
+        PushHistoryEntry(entry);
+    }
+
+    public void UpdateCurrentSearchResults(IReadOnlyList<FileSystemEntry> searchResults)
+    {
+        if (CurrentHistoryEntry is { IsSearchMode: true } entry)
+            entry.SearchResults = searchResults.ToArray();
+    }
+
+    public void SaveCurrentHistorySelection(
+        string? selectedEntryPath,
+        string? selectedEntryName,
+        double? selectedEntryViewportY,
+        double? selectedEntryScrollOffsetY)
+    {
+        var entry = CurrentHistoryEntry;
+        if (entry == null) return;
+
+        entry.SelectedEntryPath = selectedEntryPath;
+        entry.SelectedEntryName = selectedEntryName;
+        entry.SelectedEntryViewportY = selectedEntryViewportY;
+        entry.SelectedEntryScrollOffsetY = selectedEntryScrollOffsetY;
+
+        if (!entry.IsSearchMode && !string.IsNullOrEmpty(entry.Path))
+            _pathSelectedEntries[entry.Path] = selectedEntryName;
+    }
+
+    public void RemoveCurrentSearchHistory()
+    {
+        if (CurrentHistoryEntry?.IsSearchMode != true) return;
+
+        if (_historyIndex > 0)
+        {
+            _historyStack.RemoveAt(_historyIndex);
+            _historyIndex--;
+            TrimForwardHistory();
+        }
+        else
+        {
+            _historyStack.Clear();
+            _historyIndex = -1;
+        }
+
+        NotifyHistoryChanged();
     }
 
     public string? GetSavedSelectedEntryName(string path)
     {
         return _pathSelectedEntries.TryGetValue(path, out var name) ? name : null;
+    }
+
+    public string? GetSavedSelectedEntryPath(string path)
+    {
+        return CurrentHistoryEntry?.SelectedEntryPath;
     }
 
     public void SaveSelectedEntryForPath(string path, string? entryName)
@@ -246,11 +332,74 @@ public partial class NavigationViewModel : ObservableObject
             _pathSelectedEntries[path] = entryName;
     }
 
+    private static NavigationHistoryEntry CreatePathHistoryEntry(string path)
+        => new() { Path = path };
+
+    private void PushHistoryEntry(NavigationHistoryEntry entry)
+    {
+        TrimForwardHistory();
+
+        _historyStack.Add(entry);
+        _historyIndex = _historyStack.Count - 1;
+        NotifyHistoryChanged();
+    }
+
+    private void TrimForwardHistory()
+    {
+        if (_historyIndex < _historyStack.Count - 1)
+            _historyStack.RemoveRange(_historyIndex + 1, _historyStack.Count - _historyIndex - 1);
+    }
+
+    private static void UpdateSearchHistoryEntry(
+        NavigationHistoryEntry entry,
+        string query,
+        string? searchRootPath,
+        bool wasHomePageBeforeSearch,
+        IReadOnlyList<FileSystemEntry> searchResults)
+    {
+        entry.IsHomePage = false;
+        entry.IsSearchMode = true;
+        entry.SearchQuery = query;
+        entry.SearchRootPath = searchRootPath;
+        entry.WasHomePageBeforeSearch = wasHomePageBeforeSearch;
+        entry.SearchResults = searchResults.ToArray();
+        entry.SelectedEntryPath = null;
+        entry.SelectedEntryName = null;
+        entry.SelectedEntryViewportY = null;
+        entry.SelectedEntryScrollOffsetY = null;
+    }
+
+    private void ApplyHistoryEntry(NavigationHistoryEntry entry)
+    {
+        IsHomePage = entry.IsHomePage;
+        IsSearchMode = entry.IsSearchMode;
+        SearchQuery = entry.IsSearchMode ? entry.SearchQuery : string.Empty;
+        CurrentPath = entry.Path;
+    }
+
+    private void NotifyHistoryChanged()
+    {
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoForward));
+        OnPropertyChanged(nameof(CurrentHistoryEntry));
+    }
+
     private void UpdateBreadcrumbs(string path)
     {
         var segments = new List<BreadcrumbSegment>();
 
-        if (IsCollectionView && CurrentCollectionName != null)
+        if (TagPathHelper.TryParse(CurrentPath, out var currentTag))
+        {
+            segments.Add(new BreadcrumbSegment { Name = "标签", DisplayName = "标签", FullPath = "", HasDropdown = false });
+            segments.Add(new BreadcrumbSegment
+            {
+                Name = currentTag.Name,
+                DisplayName = currentTag.Name,
+                FullPath = CurrentPath,
+                HasDropdown = false
+            });
+        }
+        else if (IsCollectionView && CurrentCollectionName != null)
         {
             segments.Add(new BreadcrumbSegment { Name = "收藏夹", DisplayName = "收藏夹", FullPath = "", HasDropdown = false });
             segments.Add(new BreadcrumbSegment { Name = CurrentCollectionName, DisplayName = CurrentCollectionName, FullPath = "", HasDropdown = false });

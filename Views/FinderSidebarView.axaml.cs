@@ -33,6 +33,7 @@ public partial class FinderSidebarView : UserControl
         {
             ViewModel.PinnedFolders.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
             ViewModel.Collections.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
+            ViewModel.SidebarTags.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
             ViewModel.ExternalVolumes.CollectionChanged += (_, _) => Dispatcher.UIThread.Post(UpdateActiveStates);
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             UpdateActiveStates();
@@ -63,6 +64,10 @@ public partial class FinderSidebarView : UserControl
         {
             UpdateChevronState();
         }
+        else if (e.PropertyName == nameof(FileListViewModel.IsTagsSectionCollapsed))
+        {
+            UpdateChevronState();
+        }
         else if (e.PropertyName == nameof(FileListViewModel.ExternalVolumes))
         {
             // Handled by binding
@@ -74,6 +79,7 @@ public partial class FinderSidebarView : UserControl
         if (ViewModel == null) return;
         UpdateChevron(AiChevron, !ViewModel.IsAiSectionCollapsed);
         UpdateChevron(CollChevron, !ViewModel.IsCollectionsSectionCollapsed);
+        UpdateChevron(TagsChevron, !ViewModel.IsTagsSectionCollapsed);
     }
 
     private static void UpdateChevron(PathIcon? chevron, bool expanded)
@@ -127,10 +133,11 @@ public partial class FinderSidebarView : UserControl
                 string path => string.Equals(ViewModel.CurrentPath, path, StringComparison.Ordinal),
                 VolumeInfo volume => string.Equals(ViewModel.CurrentPath, volume.Path, StringComparison.Ordinal),
                 Collection collection => ViewModel.IsCollectionView && ViewModel.CurrentCollectionId == collection.Id,
+                FileTag tag => string.Equals(ViewModel.CurrentPath, tag.VirtualPath, StringComparison.Ordinal),
                 _ => false
             };
 
-            if (border.Tag is string or VolumeInfo or Collection)
+            if (border.Tag is string or VolumeInfo or Collection or FileTag)
                 ToggleClass(border, active);
         }
     }
@@ -188,6 +195,11 @@ public partial class FinderSidebarView : UserControl
         ViewModel?.ToggleCollectionsCollapsedCommand.Execute(null);
     }
 
+    private void OnToggleTagsCollapsed(object? sender, PointerPressedEventArgs e)
+    {
+        ViewModel?.ToggleTagsCollapsedCommand.Execute(null);
+    }
+
     private async void OnPinnedFolderPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Border { Tag: string path } || ViewModel == null) return;
@@ -213,6 +225,13 @@ public partial class FinderSidebarView : UserControl
     {
         if (sender is not Border { Tag: Collection col } || ViewModel == null) return;
         await ViewModel.NavigateToCollectionAsync(col.Id);
+        UpdateActiveStates();
+    }
+
+    private async void OnTagPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Border { Tag: FileTag tag } || ViewModel == null) return;
+        await ViewModel.NavigateToTagAsync(tag);
         UpdateActiveStates();
     }
 

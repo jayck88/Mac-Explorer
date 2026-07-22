@@ -9,6 +9,7 @@ using MacExplorer.Views.Dialogs;
 using MacExplorer.Indexing;
 using MacExplorer.Models;
 using MacExplorer.Services;
+using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
 
 namespace MacExplorer.ViewModels;
@@ -38,6 +39,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly SftpFileService? _sftpFileService;
     private readonly IRemoteFileEditService? _remoteFileEditService;
     private readonly IOpenWithAppService? _openWithAppService;
+    private readonly IFileTagService? _fileTagService;
+    private FileListColumnLayoutService _columnLayoutService;
 
     public event Action? TransientInteractionStarted;
 
@@ -86,12 +89,57 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private ObservableCollection<FileSystemEntry> _selectedEntries = [];
 
     private readonly HashSet<FileSystemEntry> _selectedEntriesSet = [];
+    private readonly HashSet<FileSystemEntry> _selectionFlaggedEntries = [];
 
     [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
     private string _statusText = string.Empty;
+
+    private string _locationStatusText = string.Empty;
+    private string _locationStatusTooltip = string.Empty;
+    private bool _isRemoteLocation;
+    private bool _isRemoteLocationConnected;
+    private RemoteServerInfo? _locationRemoteServer;
+
+    public string StatusSummaryText => FileListStatusFormatter.FormatSelectionSummary(Entries, SelectedEntries);
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusText);
+    public string LocationStatusText
+    {
+        get => _locationStatusText;
+        private set
+        {
+            if (!SetProperty(ref _locationStatusText, value)) return;
+            OnPropertyChanged(nameof(HasLocationStatus));
+        }
+    }
+    public string LocationStatusTooltip
+    {
+        get => _locationStatusTooltip;
+        private set => SetProperty(ref _locationStatusTooltip, value);
+    }
+    public bool HasLocationStatus => !string.IsNullOrWhiteSpace(LocationStatusText);
+    public bool IsRemoteLocation
+    {
+        get => _isRemoteLocation;
+        private set
+        {
+            if (!SetProperty(ref _isRemoteLocation, value)) return;
+            OnPropertyChanged(nameof(IsRemoteLocationDisconnected));
+        }
+    }
+    public bool IsRemoteLocationConnected
+    {
+        get => _isRemoteLocationConnected;
+        private set
+        {
+            if (!SetProperty(ref _isRemoteLocationConnected, value)) return;
+            OnPropertyChanged(nameof(IsRemoteLocationDisconnected));
+        }
+    }
+    public bool IsRemoteLocationDisconnected => IsRemoteLocation && !IsRemoteLocationConnected;
+    internal FileListColumnLayoutService ColumnLayoutService => _columnLayoutService;
 
     [ObservableProperty]
     private bool _isContextMenuVisible;
@@ -124,6 +172,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public enum ScrollMode { ResetToTop, RestoreNavigation, ScrollToSelected, PreservePosition }
     public ScrollMode ScrollBehaviorAfterLoad { get; set; } = ScrollMode.ResetToTop;
     public event Action? ScrollToSelectionRequested;
+    public event Action? CaptureNavigationAnchorRequested;
 
     // Forwarded properties from sub-viewmodels for binding
     public string CurrentPath => _navigation.CurrentPath;
@@ -150,6 +199,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public bool IsSearchMode => _navigation.IsSearchMode;
     public string SearchQuery => _navigation.SearchQuery;
 
+    // Tag state is encoded in the virtual path so back/forward history can restore it.
+    public bool IsTagView => TagPathHelper.IsTagPath(_navigation.CurrentPath);
+    public FileTag? CurrentTag => TagPathHelper.TryParse(_navigation.CurrentPath, out var tag) ? tag : null;
+
     // Collection state forwarded
     public bool IsCollectionView => _navigation.IsCollectionView;
     public int? CurrentCollectionId => _navigation.CurrentCollectionId;
@@ -161,12 +214,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private IReadOnlyList<SidebarItem> _sidebarFavorites = [];
     private IReadOnlyList<SidebarItem> _sidebarLocations = [];
     private IReadOnlyList<SidebarItem> _sidebarAiItems = [];
-    private IReadOnlyList<SidebarItem> _sidebarTags = [];
 
     public IReadOnlyList<SidebarItem> SidebarFavorites => _sidebarFavorites;
     public IReadOnlyList<SidebarItem> SidebarLocations => _sidebarLocations;
     public IReadOnlyList<SidebarItem> SidebarAiItems => _sidebarAiItems;
-    public IReadOnlyList<SidebarItem> SidebarTags => _sidebarTags;
+    public ObservableCollection<FileTag> SidebarTags { get; } = [];
 
     // ── Sidebar localized names ──
     public string UserName { get; private set; } = "";
@@ -207,6 +259,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         get => _isCollCollapsed;
         set { if (SetProperty(ref _isCollCollapsed, value)) _settingsService?.Set("sidebar_collections_collapsed", value); }
+    }
+    private bool _isTagsCollapsed;
+    public bool IsTagsSectionCollapsed
+    {
+        get => _isTagsCollapsed;
+        set { if (SetProperty(ref _isTagsCollapsed, value)) _settingsService?.Set("sidebar_tags_collapsed", value); }
     }
 
     // ── External volumes ──
@@ -286,6 +344,33 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     public bool IsRestoringNavigation => ScrollBehaviorAfterLoad == ScrollMode.RestoreNavigation;
+    public double? RestoredNavigationAnchorViewportY => _navigation.CurrentHistoryEntry?.SelectedEntryViewportY;
+    public double? RestoredNavigationScrollOffsetY => _navigation.CurrentHistoryEntry?.SelectedEntryScrollOffsetY;
+    private double? _capturedNavigationAnchorViewportY;
+    private double? _capturedNavigationScrollOffsetY;
+
+    public void SaveCurrentNavigationAnchor(double? viewportY, double? scrollOffsetY)
+    {
+        _capturedNavigationAnchorViewportY = viewportY;
+        _capturedNavigationScrollOffsetY = scrollOffsetY;
+    }
+
+    private void CaptureCurrentNavigationViewState()
+    {
+        _capturedNavigationAnchorViewportY = null;
+        _capturedNavigationScrollOffsetY = null;
+        CaptureNavigationAnchorRequested?.Invoke();
+
+        var selected = SelectedEntries.FirstOrDefault();
+        _navigation.SaveCurrentHistorySelection(
+            selected?.FullPath,
+            selected?.Name,
+            _capturedNavigationAnchorViewportY,
+            _capturedNavigationScrollOffsetY);
+
+        if (_navigation.IsSearchMode)
+            _navigation.UpdateCurrentSearchResults(Entries.ToArray());
+    }
 
     public FileListViewModel(
         NavigationViewModel navigation,
@@ -317,7 +402,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IRemoteConnectionService? remoteConnectionService = null,
         SftpFileService? sftpFileService = null,
         IRemoteFileEditService? remoteFileEditService = null,
-        IOpenWithAppService? openWithAppService = null)
+        IOpenWithAppService? openWithAppService = null,
+        IFileTagService? fileTagService = null)
     {
         _navigation = navigation;
         _fileOps = fileOps;
@@ -349,6 +435,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _sftpFileService = sftpFileService;
         _remoteFileEditService = remoteFileEditService;
         _openWithAppService = openWithAppService;
+        _fileTagService = fileTagService;
+        _columnLayoutService = new FileListColumnLayoutService(settingsService);
 
         // Initialize sidebar names with cheap defaults. macOS localized names are
         // resolved in the background so process launches do not block first paint.
@@ -360,6 +448,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         // Keep a HashSet mirror of SelectedEntries for O(1) lookups during render
         SelectedEntries.CollectionChanged += OnSelectedEntriesCollectionChanged;
+        Entries.CollectionChanged += OnEntriesCollectionChanged;
 
         // Wire up PropertyChanged events from sub-viewmodels to forward notifications
         _navigation.PropertyChanged += OnNavigationPropertyChanged;
@@ -368,6 +457,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _collection.PropertyChanged += OnCollectionPropertyChanged;
         _sortFilter.PropertyChanged += OnSortFilterPropertyChanged;
         _fileOps.PropertyChanged += OnFileOpsPropertyChanged;
+        if (_fileTagService != null)
+            _fileTagService.TagsChanged += OnTagsChanged;
 
         // Load persisted user preferences
         if (_settingsService != null)
@@ -383,7 +474,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _sidebarFavorites = BuildSidebarFavorites();
         _sidebarLocations = BuildSidebarLocations();
         _sidebarAiItems = BuildSidebarAiItems();
-        _sidebarTags = BuildSidebarTags();
 
         // Load sidebar visibility settings
         LoadSidebarVisibility();
@@ -391,11 +481,165 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         // Load collapse states from settings
         IsAiSectionCollapsed = _settingsService?.Get("sidebar_ai_collapsed", false) ?? false;
         IsCollectionsSectionCollapsed = _settingsService?.Get("sidebar_collections_collapsed", false) ?? false;
+        IsTagsSectionCollapsed = _settingsService?.Get("sidebar_tags_collapsed", false) ?? false;
 
         // Initialize external volumes and subscribe to changes
         RefreshExternalVolumes();
         if (_volumeMonitorService != null)
             _volumeMonitorService.VolumesChanged += OnVolumesChanged;
+
+        RefreshLocationStatus();
+    }
+
+    internal void UseColumnLayoutService(FileListColumnLayoutService columnLayoutService)
+    {
+        _columnLayoutService = columnLayoutService;
+    }
+
+    partial void OnEntriesChanging(ObservableCollection<FileSystemEntry> value)
+    {
+        Entries.CollectionChanged -= OnEntriesCollectionChanged;
+    }
+
+    partial void OnEntriesChanged(ObservableCollection<FileSystemEntry> value)
+    {
+        value.CollectionChanged += OnEntriesCollectionChanged;
+        OnPropertyChanged(nameof(StatusSummaryText));
+    }
+
+    partial void OnStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasStatusMessage));
+    }
+
+    private void OnEntriesCollectionChanged(
+        object? sender,
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(StatusSummaryText));
+    }
+
+    private void RefreshLocationStatus()
+    {
+        if (_navigation.IsRemoteView && !string.IsNullOrWhiteSpace(_navigation.CurrentRemoteServerId))
+        {
+            var serverId = _navigation.CurrentRemoteServerId;
+            var server = _remoteConnectionService?.GetSavedServers()
+                .FirstOrDefault(candidate => string.Equals(candidate.Id, serverId, StringComparison.Ordinal));
+            var connected = _remoteConnectionService?.IsConnected(serverId) == true;
+            var displayName = string.IsNullOrWhiteSpace(server?.DisplayName) ? serverId : server.DisplayName;
+            var status = FileListStatusFormatter.GetRemoteLocationStatus(displayName, connected);
+
+            SetLocationRemoteServer(server);
+            IsRemoteLocation = true;
+            IsRemoteLocationConnected = connected;
+            LocationStatusText = status.Text;
+            LocationStatusTooltip = status.Tooltip;
+            return;
+        }
+
+        SetLocationRemoteServer(null);
+        IsRemoteLocation = false;
+        IsRemoteLocationConnected = false;
+
+        if (_navigation.IsHomePage
+            || _navigation.IsAiView
+            || _navigation.IsCollectionView
+            || _navigation.IsArchiveView
+            || IsTagView
+            || string.IsNullOrWhiteSpace(_navigation.CurrentPath)
+            || VirtualPath.IsRemotePath(_navigation.CurrentPath)
+            || AiPathHelper.IsAiPath(_navigation.CurrentPath)
+            || TagPathHelper.IsTagPath(_navigation.CurrentPath)
+            || ArchivePathHelper.IsArchivePath(_navigation.CurrentPath))
+        {
+            ClearLocationStatus();
+            return;
+        }
+
+        try
+        {
+            var status = FileListStatusFormatter.GetLocalLocationStatus(
+                _navigation.CurrentPath,
+                GetDriveSpaceSnapshots());
+            if (status is { } value)
+            {
+                LocationStatusText = value.Text;
+                LocationStatusTooltip = value.Tooltip;
+            }
+            else
+            {
+                ClearLocationStatus();
+            }
+        }
+        catch
+        {
+            ClearLocationStatus();
+        }
+    }
+
+    private void SetLocationRemoteServer(RemoteServerInfo? server)
+    {
+        if (ReferenceEquals(_locationRemoteServer, server))
+            return;
+
+        if (_locationRemoteServer != null)
+            _locationRemoteServer.PropertyChanged -= OnLocationRemoteServerPropertyChanged;
+
+        _locationRemoteServer = server;
+        if (_locationRemoteServer != null)
+            _locationRemoteServer.PropertyChanged += OnLocationRemoteServerPropertyChanged;
+    }
+
+    private void OnLocationRemoteServerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(RemoteServerInfo.IsConnected))
+            return;
+
+        if (Dispatcher.UIThread.CheckAccess())
+            RefreshLocationStatus();
+        else
+            Dispatcher.UIThread.Post(RefreshLocationStatus);
+    }
+
+    private static IReadOnlyList<DriveSpaceSnapshot> GetDriveSpaceSnapshots()
+    {
+        var snapshots = new List<DriveSpaceSnapshot>();
+        DriveInfo[] drives;
+        try
+        {
+            drives = DriveInfo.GetDrives();
+        }
+        catch
+        {
+            return snapshots;
+        }
+
+        foreach (var drive in drives)
+        {
+            try
+            {
+                if (!drive.IsReady)
+                    continue;
+
+                snapshots.Add(new DriveSpaceSnapshot(
+                    drive.RootDirectory.FullName,
+                    drive.AvailableFreeSpace,
+                    drive.TotalSize));
+            }
+            catch
+            {
+                // A volume can disappear while DriveInfo is being queried.
+            }
+        }
+
+        return snapshots;
+    }
+
+    private void ClearLocationStatus()
+    {
+        LocationStatusText = string.Empty;
+        LocationStatusTooltip = string.Empty;
     }
 
     private void InitializeSidebarDisplayNames(string home)
@@ -426,6 +670,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     await _collection.LoadCollectionsAsync();
                     if (cancellationToken.IsCancellationRequested || _disposed) return;
                     await _collection.LoadPinnedFoldersAsync();
+                    if (cancellationToken.IsCancellationRequested || _disposed) return;
+                    await LoadSidebarTagsAsync(cancellationToken);
                 },
                 DispatcherPriority.Background);
         }
@@ -436,6 +682,48 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         {
             _logger?.LogDebug(ex, "Failed to load sidebar data during startup");
         }
+    }
+
+    private async Task LoadSidebarTagsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_fileTagService == null)
+        {
+            ReplaceSidebarTags(FileTagCatalog.FinderColors);
+            return;
+        }
+
+        try
+        {
+            var tags = await _fileTagService.GetSidebarTagsAsync(cancellationToken);
+            ReplaceSidebarTags(tags);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Failed to load sidebar tags");
+            ReplaceSidebarTags(FileTagCatalog.FinderColors);
+        }
+    }
+
+    private void ReplaceSidebarTags(IEnumerable<FileTag> tags)
+    {
+        SidebarTags.Clear();
+        foreach (var tag in tags)
+            SidebarTags.Add(tag);
+    }
+
+    private void OnTagsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (_disposed) return;
+            await LoadSidebarTagsAsync();
+            if (IsTagView)
+                await RefreshAsync();
+        }, DispatcherPriority.Background);
     }
 
     private async Task LoadLocalizedSidebarDisplayNamesAsync(string home, IDisplayNameService displayNameService)
@@ -531,10 +819,31 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             or nameof(NavigationViewModel.IsArchiveView)
             or nameof(NavigationViewModel.IsCollectionView)
             or nameof(NavigationViewModel.IsAiView)
+            or nameof(NavigationViewModel.IsRemoteView)
+            or nameof(NavigationViewModel.CurrentRemoteServerId)
             or nameof(NavigationViewModel.IsSearchMode)
+            or nameof(NavigationViewModel.SearchQuery)
             or nameof(NavigationViewModel.Breadcrumbs))
         {
             OnPropertyChanged(e.PropertyName);
+        }
+
+        if (e.PropertyName == nameof(NavigationViewModel.CurrentPath))
+        {
+            StatusText = string.Empty;
+            OnPropertyChanged(nameof(IsTagView));
+            OnPropertyChanged(nameof(CurrentTag));
+        }
+
+        if (e.PropertyName is nameof(NavigationViewModel.CurrentPath)
+            or nameof(NavigationViewModel.IsHomePage)
+            or nameof(NavigationViewModel.IsArchiveView)
+            or nameof(NavigationViewModel.IsCollectionView)
+            or nameof(NavigationViewModel.IsAiView)
+            or nameof(NavigationViewModel.IsRemoteView)
+            or nameof(NavigationViewModel.CurrentRemoteServerId))
+        {
+            RefreshLocationStatus();
         }
     }
 
@@ -592,10 +901,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             or nameof(SortFilterViewModel.HideDotFiles)
             or nameof(SortFilterViewModel.HideDotFolders))
         {
-            _sortFilter.ApplySortAndGroup(
-                sortedEntries => Entries = sortedEntries,
-                msg => StatusText = msg
-            );
+            ObservableCollection<FileSystemEntry>? sortedEntries = null;
+            _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
+            if (sortedEntries != null)
+                ReconcileEntriesInPlace(sortedEntries);
         }
     }
 
@@ -632,6 +941,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(path)) return;
 
+        CaptureCurrentNavigationViewState();
+        if (_navigation.IsSearchMode)
+            _search.Reset();
+
         if (VirtualPath.IsHomePath(path))
         {
             GoHome();
@@ -652,6 +965,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // Intercept tag virtual paths.
+        if (TagPathHelper.IsTagPath(path))
+        {
+            if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal) && Entries.Count > 0)
+                await RefreshAsync();
+            else
+                await HandleTagNavigationAsync(path);
+            return;
+        }
+
         // Intercept remote server paths
         if (VirtualPath.IsRemotePath(path))
         {
@@ -662,6 +985,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         // Reset AI runtime state (NavigationViewModel.NavigateToAsync handles flag reset)
         _ai.Reset();
         _navigation.IsSearchMode = false;
+        _navigation.SearchQuery = string.Empty;
 
         if (string.IsNullOrEmpty(PendingSelectFileName))
         {
@@ -679,7 +1003,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             && string.IsNullOrEmpty(PendingSelectFileName)
             && !_navigation.IsCollectionView && !_navigation.IsAiView && !_navigation.IsArchiveView && !_navigation.IsRemoteView) return;
 
-        IsLoading = true;
+        // Keep the current directory visually stable while the next directory is
+        // produced in the background. Showing the loading overlay over an existing
+        // list paints an unnecessary intermediate frame before the first new batch.
+        var showLoadingOverlay = Entries.Count == 0;
+        if (showLoadingOverlay)
+            IsLoading = true;
 
         CancelQueuedMetadataLoad();
         _metadataLoadGeneration++;
@@ -696,7 +1025,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             await LoadDirectoryContentsAsync();
         }
         catch (Exception ex) { StatusText = $"无法访问: {ex.Message}"; }
-        finally { IsLoading = false; }
+        finally
+        {
+            if (showLoadingOverlay)
+                IsLoading = false;
+        }
 
         if (string.Equals(_navigation.CurrentPath, path, StringComparison.Ordinal))
         {
@@ -746,6 +1079,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         if (IsHomePage) return;
 
+        if (IsTagView)
+        {
+            GoHome();
+            return;
+        }
+
         if (IsAiView)
         {
             var aiParent = AiPathHelper.GetParentPath(_navigation.CurrentPath);
@@ -780,6 +1119,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateBackAsync()
     {
         if (!_navigation.CanGoBack) return;
+        CaptureCurrentNavigationViewState();
         ScrollBehaviorAfterLoad = ScrollMode.RestoreNavigation;
         await _navigation.NavigateBackAsync();
         await ReloadAfterHistoryNavigation();
@@ -789,7 +1129,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public async Task NavigateForwardAsync()
     {
         if (!_navigation.CanGoForward) return;
-        ScrollBehaviorAfterLoad = ScrollMode.RestoreNavigation;
+        CaptureCurrentNavigationViewState();
+        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
         await _navigation.NavigateForwardAsync();
         await ReloadAfterHistoryNavigation();
     }
@@ -798,6 +1139,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         try
         {
+            if (_navigation.CurrentHistoryEntry is { IsSearchMode: true } searchEntry)
+            {
+                RestoreSearchHistoryEntry(searchEntry);
+                return;
+            }
+
             var path = _navigation.CurrentPath;
             if (ArchivePathHelper.IsArchivePath(path))
             {
@@ -806,6 +1153,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             else if (AiPathHelper.IsAiPath(path))
             {
                 await HandleAiNavigationAsync(path);
+            }
+            else if (TagPathHelper.IsTagPath(path))
+            {
+                await HandleTagNavigationAsync(path);
             }
             else if (VirtualPath.IsRemotePath(path))
             {
@@ -850,6 +1201,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void GoHome()
     {
+        CaptureCurrentNavigationViewState();
         CancelDirectoryWork();
         _navigation.GoHome();
         _settingsService?.Set(LastDirectorySettingKey, "");
@@ -931,7 +1283,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!IsCollectionView && !IsRemoteView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
+        if (IsTagView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
+        {
+            StatusText = $"项目不存在，已刷新: {entry.Name}";
+            await RefreshAsync();
+            return;
+        }
+
+        if (!IsCollectionView && !IsTagView && !IsRemoteView && !File.Exists(entry.FullPath) && !Directory.Exists(entry.FullPath))
         {
             StatusText = $"项目不存在，已刷新: {entry.Name}";
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -1082,7 +1441,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         _sftpFileService.SetCurrentServer(serverId);
         var entries = await _sftpFileService.GetDirectoryContentsAsync(remotePath);
-        ApplyEntries(entries);
+        ApplyEntries(entries, reconcileInPlace: true);
+        RefreshLocationStatus();
     }
 
     public async Task ConnectToServerAsync(RemoteServerInfo server)
@@ -1144,7 +1504,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         if (IsRemoteView)
         {
-            IsLoading = true;
+            var showRemoteLoadingOverlay = Entries.Count == 0;
+            if (showRemoteLoadingOverlay)
+                IsLoading = true;
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             try
             {
@@ -1156,8 +1518,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             }
             finally
             {
-                IsLoading = false;
+                if (showRemoteLoadingOverlay)
+                    IsLoading = false;
             }
+            return;
+        }
+
+        if (IsTagView)
+        {
+            await HandleTagNavigationAsync(_navigation.CurrentPath, recordHistory: false);
             return;
         }
 
@@ -1230,10 +1599,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        IsLoading = true;
+        var showLoadingOverlay = Entries.Count == 0;
+        if (showLoadingOverlay)
+            IsLoading = true;
         ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         try { await LoadDirectoryContentsAsync(forceRefresh: true); }
-        finally { IsLoading = false; }
+        finally
+        {
+            if (showLoadingOverlay)
+                IsLoading = false;
+        }
     }
 
     // ── Selection ──
@@ -1268,6 +1643,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
             _selectedEntriesSet.Clear();
 
+        UpdateEntrySelectionFlags();
+        OnPropertyChanged(nameof(StatusSummaryText));
+
         if (IsSelectionPreviewSuppressed)
             return;
 
@@ -1283,6 +1661,26 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 _metadataLoadTask = null;
                 CurrentMetadata = null;
             }
+        }
+    }
+
+    private void UpdateEntrySelectionFlags()
+    {
+        var selected = SelectedEntries.ToHashSet();
+
+        foreach (var entry in _selectionFlaggedEntries.ToArray())
+        {
+            if (selected.Contains(entry))
+                continue;
+
+            entry.IsSelected = false;
+            _selectionFlaggedEntries.Remove(entry);
+        }
+
+        foreach (var entry in selected)
+        {
+            entry.IsSelected = true;
+            _selectionFlaggedEntries.Add(entry);
         }
     }
 
@@ -1486,7 +1884,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 new ContextMenuAction { Label = "刷新", IconSvg = Icons.Refresh, Execute = () => RefreshCommand.ExecuteAsync(null) }
             });
         }
-        else if (IsCollectionView || IsAiView)
+        else if (IsCollectionView || IsAiView || IsTagView)
         {
             ContextMenuActions = new ObservableCollection<ContextMenuAction>();
         }
@@ -2394,12 +2792,18 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (SelectedEntries.Count == 0) return;
         try
         {
+            var deletedEntries = SelectedEntries.ToList();
+            var deletedPaths = deletedEntries
+                .Select(e => e.FullPath)
+                .ToHashSet(StringComparer.Ordinal);
+
             await _fileOps.DeleteSelectedAsync(
-                SelectedEntries.ToList(),
+                deletedEntries,
                 _navigation.CurrentPath,
                 IsCollectionView,
                 _navigation.CurrentCollectionId,
-                msg => StatusText = msg
+                msg => StatusText = msg,
+                excludeVm: this
             );
 
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -2423,9 +2827,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     folders => { }
                 );
             else
-                await LoadDirectoryContentsAsync(forceRefresh: true);
+                RemoveDeletedEntriesPreservingList(deletedPaths);
 
-            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+            if (!string.IsNullOrWhiteSpace(_navigation.CurrentPath))
+                _directoryChangeNotifier?.SuppressRefresh([_navigation.CurrentPath], TimeSpan.FromMilliseconds(700));
+
+            RefreshLocationStatus();
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
     }
@@ -2442,17 +2849,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 msg => StatusText = msg,
                 async (createdName) =>
                 {
-                    ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
-                    await LoadDirectoryContentsAsync(forceRefresh: true);
-                    // Auto-select and rename
-                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
-                    if (newEntry != null)
-                    {
-                        SelectedEntries.Clear();
-                        SelectedEntries.Add(newEntry);
-                        _fileOps.RaiseRequestRename(newEntry);
-                    }
-                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+                    await AddCreatedEntryAndStartRenameAsync(createdName, isDirectory: true);
                 }
             );
         }
@@ -2472,21 +2869,194 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 msg => StatusText = msg,
                 async (createdName) =>
                 {
-                    ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
-                    await LoadDirectoryContentsAsync(forceRefresh: true);
-                    // Auto-select and rename
-                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
-                    if (newEntry != null)
-                    {
-                        SelectedEntries.Clear();
-                        SelectedEntries.Add(newEntry);
-                        _fileOps.RaiseRequestRename(newEntry);
-                    }
-                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+                    await AddCreatedEntryAndStartRenameAsync(createdName, isDirectory: false);
                 }
             );
         }
         catch (Exception ex) { StatusText = $"创建文件失败: {ex.Message}"; }
+    }
+
+    private async Task AddCreatedEntryAndStartRenameAsync(string createdName, bool isDirectory)
+    {
+        ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
+
+        var createdEntry = await GetCreatedEntryAsync(createdName, isDirectory);
+        var visibleEntry = UpsertEntryPreservingList(createdEntry);
+
+        SelectedEntries.Clear();
+        SelectedEntries.Add(visibleEntry);
+        RefreshLocationStatus();
+        _fileOps.RaiseRequestRename(visibleEntry);
+
+        if (!string.IsNullOrWhiteSpace(_navigation.CurrentPath))
+        {
+            _directoryChangeNotifier?.SuppressRefresh([_navigation.CurrentPath], TimeSpan.FromMilliseconds(700));
+            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+        }
+    }
+
+    private async Task<FileSystemEntry> GetCreatedEntryAsync(string createdName, bool isDirectory)
+    {
+        var fullPath = _fileService.CombinePath(_navigation.CurrentPath, createdName);
+        var indexedEntry = await _fileService.GetEntryAsync(fullPath);
+        if (indexedEntry != null)
+            return indexedEntry;
+
+        return CreateFileSystemEntrySnapshot(fullPath, createdName, isDirectory);
+    }
+
+    private static FileSystemEntry CreateFileSystemEntrySnapshot(string fullPath, string name, bool isDirectory)
+    {
+        if (isDirectory && Directory.Exists(fullPath))
+        {
+            var directory = new DirectoryInfo(fullPath);
+            return new FileSystemEntry
+            {
+                FullPath = fullPath,
+                Name = name,
+                Extension = directory.Extension,
+                IsDirectory = true,
+                LastModified = directory.LastWriteTime,
+                Created = directory.CreationTime,
+                IconKey = "folder"
+            };
+        }
+
+        if (!isDirectory && File.Exists(fullPath))
+        {
+            var file = new FileInfo(fullPath);
+            return new FileSystemEntry
+            {
+                FullPath = fullPath,
+                Name = name,
+                Extension = file.Extension,
+                IsDirectory = false,
+                Size = file.Length,
+                LastModified = file.LastWriteTime,
+                Created = file.CreationTime,
+                IconKey = "file-generic"
+            };
+        }
+
+        var now = DateTime.Now;
+        return new FileSystemEntry
+        {
+            FullPath = fullPath,
+            Name = name,
+            Extension = isDirectory ? string.Empty : Path.GetExtension(name),
+            IsDirectory = isDirectory,
+            LastModified = now,
+            Created = now,
+            IconKey = isDirectory ? "folder" : "file-generic"
+        };
+    }
+
+    private FileSystemEntry UpsertEntryPreservingList(FileSystemEntry entry)
+    {
+        ObservableCollection<FileSystemEntry>? sortedEntries = null;
+        _sortFilter.UpsertRawEntry(entry, Entries);
+        _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
+
+        if (sortedEntries == null)
+            return entry;
+
+        ReconcileEntriesInPlace(sortedEntries);
+        return Entries.FirstOrDefault(e => string.Equals(e.FullPath, entry.FullPath, StringComparison.Ordinal)) ?? entry;
+    }
+
+    private void ReconcileEntriesInPlace(IReadOnlyList<FileSystemEntry> desiredEntries)
+    {
+        for (var i = 0; i < desiredEntries.Count; i++)
+        {
+            var desired = desiredEntries[i];
+            if (i < Entries.Count && IsSameEntry(Entries[i], desired))
+            {
+                var current = Entries[i];
+                desired = ReuseOrPrepareEntry(current, desired);
+                if (!ReferenceEquals(current, desired))
+                    Entries[i] = desired;
+                continue;
+            }
+
+            var existingIndex = -1;
+            for (var j = i + 1; j < Entries.Count; j++)
+            {
+                if (IsSameEntry(Entries[j], desired))
+                {
+                    existingIndex = j;
+                    break;
+                }
+            }
+
+            if (existingIndex >= 0)
+            {
+                Entries.Move(existingIndex, i);
+                var current = Entries[i];
+                desired = ReuseOrPrepareEntry(current, desired);
+                if (!ReferenceEquals(current, desired))
+                    Entries[i] = desired;
+            }
+            else
+            {
+                Entries.Insert(i, desired);
+            }
+        }
+
+        while (Entries.Count > desiredEntries.Count)
+            Entries.RemoveAt(Entries.Count - 1);
+    }
+
+    private static bool IsSameEntry(FileSystemEntry left, FileSystemEntry right)
+        => string.Equals(left.FullPath, right.FullPath, StringComparison.Ordinal);
+
+    private static FileSystemEntry ReuseOrPrepareEntry(FileSystemEntry current, FileSystemEntry desired)
+    {
+        if (CanReuseEntrySnapshot(current, desired))
+            return current;
+
+        desired.IconUrl ??= current.IconUrl;
+        desired.ThumbnailUrl ??= current.ThumbnailUrl;
+        desired.IsCut = current.IsCut;
+        desired.IsSelected = current.IsSelected;
+        return desired;
+    }
+
+    private static bool CanReuseEntrySnapshot(FileSystemEntry current, FileSystemEntry desired)
+    {
+        return string.Equals(current.FullPath, desired.FullPath, StringComparison.Ordinal)
+               && string.Equals(current.Name, desired.Name, StringComparison.Ordinal)
+               && current.IsDirectory == desired.IsDirectory
+               && current.Size == desired.Size
+               && current.LastModified == desired.LastModified
+               && current.Created == desired.Created
+               && string.Equals(current.Extension, desired.Extension, StringComparison.Ordinal)
+               && current.IsHidden == desired.IsHidden
+               && current.IsSymbolicLink == desired.IsSymbolicLink
+               && current.IsReadable == desired.IsReadable
+               && current.IsWritable == desired.IsWritable
+               && string.Equals(current.IconKey, desired.IconKey, StringComparison.Ordinal)
+               && current.IsVirtual == desired.IsVirtual
+               && string.Equals(current.VirtualFolderType, desired.VirtualFolderType, StringComparison.Ordinal)
+               && string.Equals(current.VirtualFolderKey, desired.VirtualFolderKey, StringComparison.Ordinal)
+               && current.VirtualItemCount == desired.VirtualItemCount;
+    }
+
+    private void RemoveDeletedEntriesPreservingList(ISet<string> deletedPaths)
+    {
+        if (deletedPaths.Count == 0) return;
+
+        ObservableCollection<FileSystemEntry>? sortedEntries = null;
+        _sortFilter.RemoveRawEntries(deletedPaths, Entries);
+        _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
+
+        if (sortedEntries != null)
+            ReconcileEntriesInPlace(sortedEntries);
+
+        for (var i = SelectedEntries.Count - 1; i >= 0; i--)
+        {
+            if (deletedPaths.Contains(SelectedEntries[i].FullPath))
+                SelectedEntries.RemoveAt(i);
+        }
     }
 
     public async Task MoveEntryAsync(FileSystemEntry source, FileSystemEntry targetFolder)
@@ -2567,7 +3137,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         RenameRequested?.Invoke(entry);
     }
 
-    public async Task RenameEntryAsync(FileSystemEntry entry, string newName)
+    public async Task<bool> RenameEntryAsync(FileSystemEntry entry, string newName)
     {
         // Virtual face cluster rename
         if (entry.IsVirtual && entry.VirtualFolderType == "face")
@@ -2597,48 +3167,114 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                         VirtualFolderKey = old.VirtualFolderKey,
                         VirtualItemCount = old.VirtualItemCount,
                     };
-                    SelectedEntries.Clear();
-                    SelectedEntries.Add(Entries[i]);
+                    ReplaceSelection([Entries[i]], Entries[i]);
                     break;
                 }
             }
-            OnPropertyChanged(nameof(Entries));
-            return;
+            return true;
         }
 
         // Other virtual entries cannot be renamed
         if (entry.IsVirtual)
-            return;
+            return false;
 
+        var oldPath = entry.FullPath;
+        var dir = Path.GetDirectoryName(oldPath) ?? "";
+        var newPath = Path.Combine(dir, newName);
         try
         {
-            await _fileOps.RenameEntryAsync(entry, newName, IsAiView, msg => StatusText = msg);
+            var wasPinned = entry.IsDirectory && await _fileOps.IsFolderPinnedAsync(oldPath);
+            if (_directoryChangeNotifier != null && !string.IsNullOrWhiteSpace(dir))
+                _directoryChangeNotifier.SuppressRefreshFor(this, [dir], TimeSpan.FromMilliseconds(1500));
 
-            // Update PIN folder path only if it was already pinned
-            var oldPath = entry.FullPath;
-            var dir = Path.GetDirectoryName(oldPath) ?? "";
-            var newPath = Path.Combine(dir, newName);
+            await _fileOps.RenameEntryAsync(
+                entry,
+                newName,
+                IsAiView,
+                msg => StatusText = msg,
+                excludeVm: this);
 
-            if (await _fileOps.IsFolderPinnedAsync(oldPath))
-            {
-                await _fileOps.UnpinFolderAsync(oldPath);
-                await _fileOps.PinFolderAsync(newPath, newName);
+            var renamedEntry = await _fileService.GetEntryAsync(newPath)
+                               ?? CreateRenamedEntrySnapshot(entry, newPath, newName);
+            ReplaceRenamedEntryPreservingList(oldPath, renamedEntry);
+
+            if (wasPinned)
                 await _collection.LoadPinnedFoldersAsync();
-            }
 
-            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-            await LoadDirectoryContentsAsync(forceRefresh: true);
-
-            // Re-select the renamed entry
-            var renamed = Entries.FirstOrDefault(e => e.Name == newName);
-            if (renamed != null)
-            {
-                SelectedEntries.Clear();
-                SelectedEntries.Add(renamed);
-            }
-            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
+            RefreshLocationStatus();
+            return true;
         }
-        catch (Exception ex) { StatusText = $"重命名失败: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            StatusText = $"重命名失败: {ex.Message}";
+            return false;
+        }
+    }
+
+    private void ReplaceRenamedEntryPreservingList(string oldPath, FileSystemEntry renamedEntry)
+    {
+        var selectedPaths = SelectedEntries.Select(selected => selected.FullPath).ToArray();
+        var anchorPath = _lastClickedPath;
+
+        ObservableCollection<FileSystemEntry>? sortedEntries = null;
+        _sortFilter.ReplaceRawEntry(oldPath, renamedEntry, Entries);
+        _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
+        if (sortedEntries != null)
+            ReconcileEntriesInPlace(sortedEntries);
+
+        var visibleRenamedEntry = Entries.FirstOrDefault(candidate =>
+            string.Equals(candidate.FullPath, renamedEntry.FullPath, StringComparison.Ordinal));
+        var restoredSelection = selectedPaths
+            .Select(path => string.Equals(path, oldPath, StringComparison.Ordinal)
+                ? renamedEntry.FullPath
+                : path)
+            .Select(path => Entries.FirstOrDefault(candidate =>
+                string.Equals(candidate.FullPath, path, StringComparison.Ordinal)))
+            .OfType<FileSystemEntry>()
+            .ToList();
+        var restoredAnchorPath = string.Equals(anchorPath, oldPath, StringComparison.Ordinal)
+            ? renamedEntry.FullPath
+            : anchorPath;
+        var restoredAnchor = restoredAnchorPath == null
+            ? restoredSelection.FirstOrDefault()
+            : restoredSelection.FirstOrDefault(candidate =>
+                  string.Equals(candidate.FullPath, restoredAnchorPath, StringComparison.Ordinal))
+              ?? visibleRenamedEntry
+              ?? restoredSelection.FirstOrDefault();
+
+        ReplaceSelection(restoredSelection, restoredAnchor);
+        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+    }
+
+    private static FileSystemEntry CreateRenamedEntrySnapshot(
+        FileSystemEntry source,
+        string newPath,
+        string newName)
+    {
+        return new FileSystemEntry
+        {
+            FullPath = newPath,
+            Name = newName,
+            IsDirectory = source.IsDirectory,
+            Size = source.Size,
+            LastModified = source.LastModified,
+            Created = source.Created,
+            Extension = Path.GetExtension(newName),
+            IsHidden = newName.StartsWith('.'),
+            IsSymbolicLink = source.IsSymbolicLink,
+            IsReadable = source.IsReadable,
+            IsWritable = source.IsWritable,
+            IconKey = source.IconKey,
+            IconUrl = source.IconUrl,
+            ThumbnailUrl = source.ThumbnailUrl,
+            IsCut = source.IsCut,
+            IsVirtual = source.IsVirtual,
+            VirtualFolderType = source.VirtualFolderType,
+            VirtualFolderKey = source.VirtualFolderKey,
+            VirtualItemCount = source.VirtualItemCount,
+            GitStatus = source.GitStatus,
+            HasGitChanges = source.HasGitChanges
+        };
     }
 
     // ── Archive Operations ──
@@ -2723,12 +3359,29 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var searchCurrentPath = IsHomePage ? null : _navigation.CurrentPath;
+        CaptureCurrentNavigationViewState();
+        var wasHomePage = IsHomePage;
+        var searchCurrentPath = wasHomePage || IsTagView ? null : _navigation.CurrentPath;
+        var searchRoot = string.IsNullOrEmpty(searchCurrentPath) ? HomeDirectory : searchCurrentPath;
         CancelDirectoryWork();
-        _search.EnterSearchMode(IsHomePage);
+        _search.EnterSearchMode(wasHomePage);
+        _navigation.SetWatchedDirectory(null);
         _navigation.IsHomePage = false;
+        _navigation.IsArchiveView = false;
+        _navigation.IsCollectionView = false;
+        _navigation.IsAiView = false;
+        _navigation.IsRemoteView = false;
+        _navigation.CurrentArchivePath = null;
+        _navigation.CurrentArchiveInternalPath = "";
+        _navigation.CurrentCollectionId = null;
+        _navigation.CurrentCollectionName = null;
+        _navigation.CurrentFaceClusterId = null;
+        _navigation.CurrentAiContextLabel = null;
+        _navigation.CurrentRemoteServerId = null;
         _navigation.IsSearchMode = true;
         _navigation.SearchQuery = query;
+        _navigation.PushOrReplaceSearchHistory(query, searchRoot, wasHomePage, []);
+        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
         IsLoading = true;
 
         try
@@ -2741,9 +3394,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 {
                     ApplyEntries(entries);
                     SelectedEntries.Clear();
+                    _navigation.UpdateCurrentSearchResults(Entries.ToArray());
                 },
                 msg => StatusText = msg
             );
+            _navigation.UpdateCurrentSearchResults(Entries.ToArray());
         }
         finally { IsLoading = false; }
     }
@@ -2757,6 +3412,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             || string.IsNullOrEmpty(_navigation.CurrentPath)
             || VirtualPath.IsRemotePath(_navigation.CurrentPath)
             || AiPathHelper.IsAiPath(_navigation.CurrentPath)
+            || TagPathHelper.IsTagPath(_navigation.CurrentPath)
             || ArchivePathHelper.IsArchivePath(_navigation.CurrentPath)
                 ? HomeDirectory
                 : _navigation.CurrentPath;
@@ -2770,8 +3426,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     public async Task ExitSearchAsync()
     {
+        CaptureCurrentNavigationViewState();
         var wasHomePage = _search.WasHomePageBeforeSearch;
         _search.ExitSearchMode(true);
+        _navigation.RemoveCurrentSearchHistory();
         _navigation.IsSearchMode = false;
         _navigation.SearchQuery = string.Empty;
 
@@ -2783,6 +3441,102 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
 
         await RefreshAsync();
+    }
+
+    private void RestoreSearchHistoryEntry(NavigationHistoryEntry entry)
+    {
+        CancelDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
+        _search.RestoreSearchMode(entry.SearchQuery, entry.WasHomePageBeforeSearch);
+        _navigation.IsHomePage = false;
+        _navigation.IsArchiveView = false;
+        _navigation.IsCollectionView = false;
+        _navigation.IsAiView = false;
+        _navigation.IsRemoteView = false;
+        _navigation.CurrentArchivePath = null;
+        _navigation.CurrentArchiveInternalPath = "";
+        _navigation.CurrentCollectionId = null;
+        _navigation.CurrentCollectionName = null;
+        _navigation.CurrentFaceClusterId = null;
+        _navigation.CurrentAiContextLabel = null;
+        _navigation.CurrentRemoteServerId = null;
+        _navigation.IsSearchMode = true;
+        _navigation.SearchQuery = entry.SearchQuery;
+        ApplyEntries(entry.SearchResults);
+        StatusText = $"搜索 \"{entry.SearchQuery}\" — 找到 {entry.SearchResults.Count} 项";
+    }
+
+    // ── Tags ──
+
+    public Task NavigateToTagAsync(FileTag tag) => NavigateToAsync(tag.VirtualPath);
+
+    private async Task HandleTagNavigationAsync(string sentinelPath, bool recordHistory = true)
+    {
+        if (_fileTagService == null || !TagPathHelper.TryParse(sentinelPath, out var tag))
+        {
+            StatusText = "标签服务未初始化";
+            return;
+        }
+
+        CancelDirectoryWork();
+        _navigation.SetWatchedDirectory(null);
+        _navigation.IsHomePage = false;
+        _navigation.IsArchiveView = false;
+        _navigation.IsCollectionView = false;
+        _navigation.IsAiView = false;
+        _navigation.IsRemoteView = false;
+        _navigation.IsSearchMode = false;
+        _navigation.SearchQuery = string.Empty;
+        _navigation.CurrentArchivePath = null;
+        _navigation.CurrentArchiveInternalPath = string.Empty;
+        _navigation.CurrentCollectionId = null;
+        _navigation.CurrentCollectionName = null;
+        _navigation.CurrentFaceClusterId = null;
+        _navigation.CurrentAiContextLabel = null;
+        _navigation.CurrentRemoteServerId = null;
+        _ai.Reset();
+        _search.Reset();
+        _navigation.CurrentPath = sentinelPath;
+        _navigation.UpdateBreadcrumbs();
+        if (recordHistory)
+            _navigation.UpdateHistoryForSentinelPath(sentinelPath);
+        ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+        IsLoading = true;
+
+        try
+        {
+            var paths = await _fileTagService.FindFilePathsAsync(tag);
+            var entries = new List<FileSystemEntry>(Math.Min(paths.Count, 2000));
+            foreach (var path in paths.Distinct(StringComparer.Ordinal).Take(2000))
+            {
+                if (!File.Exists(path) && !Directory.Exists(path))
+                    continue;
+
+                var entry = await _fileService.GetEntryAsync(path);
+                if (entry != null)
+                    entries.Add(entry);
+            }
+
+            if (!string.Equals(_navigation.CurrentPath, sentinelPath, StringComparison.Ordinal))
+                return;
+
+            ApplyEntries(entries);
+            ResolveRealEntries(entries);
+            StatusText = $"标签“{tag.Name}” · {entries.Count} 项";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"加载标签失败: {ex.Message}";
+            _logger?.LogError(ex, "Failed to load tag {Tag}", tag.Name);
+        }
+        finally
+        {
+            if (string.Equals(_navigation.CurrentPath, sentinelPath, StringComparison.Ordinal))
+                IsLoading = false;
+        }
     }
 
     // ── Collections ──
@@ -2955,6 +3709,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IsCollectionsSectionCollapsed = !IsCollectionsSectionCollapsed;
     }
 
+    [RelayCommand]
+    public void ToggleTagsCollapsed()
+    {
+        IsTagsSectionCollapsed = !IsTagsSectionCollapsed;
+    }
+
     // ── Sidebar Helpers ──
 
     public void LoadSidebarVisibility()
@@ -3005,6 +3765,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             RefreshExternalVolumes();
+            RefreshLocationStatus();
 
             // If currently browsing a removed volume, navigate home
             if (!string.IsNullOrEmpty(CurrentPath) && CurrentPath.StartsWith("/Volumes/", StringComparison.Ordinal))
@@ -3143,6 +3904,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         var work = BeginDirectoryWork();
         IReadOnlyList<FileSystemEntry> entries;
+        var publishedDirectoryContents = false;
+        var publishedIndexContents = false;
         try
         {
             // Skip index for /Applications paths because they need to merge /System/Applications counterpart
@@ -3155,6 +3918,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 if (entries.Count > 0)
                 {
                     ApplyEntries(entries);
+                    publishedDirectoryContents = true;
+                    publishedIndexContents = true;
                     StartDirectoryBackgroundWork(entries, work, includeAnalysis: false);
                 }
             }
@@ -3164,14 +3929,22 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         try
         {
             var accumulated = new List<FileSystemEntry>();
+            var publishedCount = -1;
             await foreach (var batch in _fileService.EnumerateDirectoryBatchesAsync(
                                _navigation.CurrentPath, 256, work.Token))
             {
                 if (!IsCurrentDirectoryWork(work)) return;
                 accumulated.AddRange(batch);
-                ApplyEntries(accumulated);
+                if (!forceRefresh && !publishedIndexContents)
+                {
+                    ApplyEntries(accumulated, reconcileInPlace: publishedDirectoryContents);
+                    publishedDirectoryContents = true;
+                    publishedCount = accumulated.Count;
+                }
             }
             entries = accumulated;
+            if (forceRefresh || publishedCount != accumulated.Count)
+                ApplyEntries(entries, reconcileInPlace: forceRefresh || publishedDirectoryContents);
         }
         catch (OperationCanceledException)
         {
@@ -3179,9 +3952,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         if (!IsCurrentDirectoryWork(work)) return;
 
-        ApplyEntries(entries);
-        StartDirectoryBackgroundWork(entries, work, includeAnalysis: true);
+        StartDirectoryBackgroundWork(Entries.ToArray(), work, includeAnalysis: true);
         QueueDirectoryIndexUpdate(_navigation.CurrentPath, entries, work);
+        RefreshLocationStatus();
 
         // Batch load ratings for current directory
         _ = _collection.GetRating(_navigation.CurrentPath); // Just to initialize
@@ -3247,7 +4020,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _ = ResolveIconsInBackgroundAsync(entries, work);
     }
 
-    private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)
+    private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries, bool reconcileInPlace = false)
     {
         var selectedPaths = SelectedEntries
             .Select(e => e.FullPath)
@@ -3255,10 +4028,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var anchorPath = _lastClickedPath;
 
         _sortFilter.SetRawEntries(entries);
-        _sortFilter.ApplySortAndGroup(
-            sortedEntries => Entries = sortedEntries,
-            msg => StatusText = msg
-        );
+        if (reconcileInPlace)
+        {
+            ObservableCollection<FileSystemEntry>? sortedEntries = null;
+            _sortFilter.ApplySortAndGroup(sorted => sortedEntries = sorted);
+            if (sortedEntries != null)
+                ReconcileEntriesInPlace(sortedEntries);
+        }
+        else
+        {
+            _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
+        }
 
         var restoredSelection = new List<FileSystemEntry>();
         FileSystemEntry? restoredAnchor = null;
@@ -3266,15 +4046,19 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         // Restore selected entry when navigating back/forward
         if (IsRestoringNavigation)
         {
-            var savedName = _navigation.GetSavedSelectedEntryName(_navigation.CurrentPath);
-            if (savedName != null)
+            var savedPath = _navigation.CurrentHistoryEntry?.SelectedEntryPath
+                ?? _navigation.GetSavedSelectedEntryPath(_navigation.CurrentPath);
+            var savedName = _navigation.CurrentHistoryEntry?.SelectedEntryName
+                ?? _navigation.GetSavedSelectedEntryName(_navigation.CurrentPath);
+            FileSystemEntry? entry = null;
+            if (savedPath != null)
+                entry = Entries.FirstOrDefault(e => string.Equals(e.FullPath, savedPath, StringComparison.Ordinal));
+            if (entry == null && savedName != null)
+                entry = Entries.FirstOrDefault(e => e.Name == savedName);
+            if (entry != null)
             {
-                var entry = Entries.FirstOrDefault(e => e.Name == savedName);
-                if (entry != null)
-                {
-                    restoredSelection.Add(entry);
-                    restoredAnchor = entry;
-                }
+                restoredSelection.Add(entry);
+                restoredAnchor = entry;
             }
         }
 
@@ -3304,8 +4088,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         ReplaceSelection(restoredSelection, restoredAnchor);
 
-        // Reset to PreservePosition so background icon/thumbnail updates don't affect scroll
-        if (ScrollBehaviorAfterLoad != ScrollMode.ScrollToSelected)
+        // Reset to PreservePosition so background icon/thumbnail updates don't affect scroll.
+        // During history restore, keep the mode alive until the view actually scrolls to the target.
+        if (ScrollBehaviorAfterLoad is not ScrollMode.RestoreNavigation and not ScrollMode.ScrollToSelected)
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         }
@@ -3409,6 +4194,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         catch { }
         _fileOps.RequestRename -= OnFileOpsRenameRequested;
+        Entries.CollectionChanged -= OnEntriesCollectionChanged;
         SelectedEntries.CollectionChanged -= OnSelectedEntriesCollectionChanged;
         _navigation.PropertyChanged -= OnNavigationPropertyChanged;
         _ai.PropertyChanged -= OnAiPropertyChanged;
@@ -3416,6 +4202,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _collection.PropertyChanged -= OnCollectionPropertyChanged;
         _sortFilter.PropertyChanged -= OnSortFilterPropertyChanged;
         _fileOps.PropertyChanged -= OnFileOpsPropertyChanged;
+        if (_fileTagService != null)
+            _fileTagService.TagsChanged -= OnTagsChanged;
+        SetLocationRemoteServer(null);
         if (_volumeMonitorService != null)
             _volumeMonitorService.VolumesChanged -= OnVolumesChanged;
         _metadataLoadDebounceCts?.Dispose();
@@ -3454,7 +4243,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void ApplyEntriesPreservingSelection(IReadOnlyList<FileSystemEntry> entries)
     {
-        ApplyEntries(entries);
+        ApplyEntries(entries, reconcileInPlace: true);
     }
 
     private static bool HasAncestorPath(string relativePath, HashSet<string> paths)
@@ -3544,21 +4333,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             new() { Name = "文字搜索", Path = VirtualPath.AiTextSearch, IconKey = "search", IconData = Icons.Search, IconColor = "#3B82F6" },
         };
     }
-
-    private List<SidebarItem> BuildSidebarTags()
-    {
-        return new()
-        {
-            new() { Name = "红色", Path = "", IconKey = "tag", IconColor = "#EF4444" },
-            new() { Name = "橙色", Path = "", IconKey = "tag", IconColor = "#F97316" },
-            new() { Name = "黄色", Path = "", IconKey = "tag", IconColor = "#EAB308" },
-            new() { Name = "绿色", Path = "", IconKey = "tag", IconColor = "#22C55E" },
-            new() { Name = "蓝色", Path = "", IconKey = "tag", IconColor = "#3B82F6" },
-            new() { Name = "紫色", Path = "", IconKey = "tag", IconColor = "#8B5CF6" },
-        };
-    }
-
-
 
 }
 

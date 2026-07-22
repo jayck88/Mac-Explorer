@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:MacExplorer.Controls"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
              x:Class="MacExplorer.Controls.WindowTitleBar"
              x:Name="TitleBarRoot"
              Height="40">
@@ -52,31 +53,37 @@
         <Style Selector="StackPanel.window-controls:pointerover TextBlock.window-control-symbol">
             <Setter Property="Opacity" Value="1"/>
         </Style>
+        <Style Selector="local|WindowTitleBar:inactive Ellipse.traffic-light">
+            <Setter Property="Fill" Value="#A8A8A8"/>
+        </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="Auto,*" Background="Transparent">
+    <Grid ColumnDefinitions="Auto,*" Background="Transparent"
+          chrome:WindowDecorationProperties.ElementRole="TitleBar">
         <Border x:Name="WindowControlsReserve" Grid.Column="0" Padding="14,0,12,0"
-                VerticalAlignment="Stretch">
+                VerticalAlignment="Stretch"
+                chrome:WindowDecorationProperties.ElementRole="User">
             <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="6"
-                        VerticalAlignment="Center">
+                        VerticalAlignment="Center"
+                        chrome:WindowDecorationProperties.ElementRole="User">
                 <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
                         AutomationProperties.Name="关闭窗口">
                     <Grid Width="13.5" Height="13.5">
-                        <Ellipse Fill="{DynamicResource WindowCloseBrush}"/>
+                        <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowCloseBrush}"/>
                         <TextBlock Classes="window-control-symbol" Text="×" Foreground="#5C1A17" Margin="0,-1,0,0"/>
                     </Grid>
                 </Button>
                 <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
                         AutomationProperties.Name="最小化窗口">
                     <Grid Width="13.5" Height="13.5">
-                        <Ellipse Fill="{DynamicResource WindowMinimizeBrush}"/>
+                        <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMinimizeBrush}"/>
                         <TextBlock Classes="window-control-symbol" Text="−" Foreground="#654200" Margin="0,-2,0,0"/>
                     </Grid>
                 </Button>
-                <Button x:Name="MaximizeButton" Classes="window-control" ToolTip.Tip="最大化或还原"
-                        AutomationProperties.Name="最大化或还原窗口">
+                <Button x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
+                        AutomationProperties.Name="进入全屏">
                     <Grid Width="13.5" Height="13.5">
-                        <Ellipse Fill="{DynamicResource WindowMaximizeBrush}"/>
+                        <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMaximizeBrush}"/>
                         <TextBlock Classes="window-control-symbol" Text="+" Foreground="#0C551C" Margin="0,-1,0,0"/>
                     </Grid>
                 </Button>
@@ -84,8 +91,8 @@
         </Border>
 
         <Border x:Name="DragRegion" Grid.Column="1" Background="Transparent"
-                PointerPressed="OnDragRegionPressed">
-            <Panel>
+                chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <Panel chrome:WindowDecorationProperties.ElementRole="TitleBar">
                 <TextBlock x:Name="TitleText" Text="{Binding Title, ElementName=TitleBarRoot}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            FontSize="{StaticResource FontSizeSm}" FontWeight="Medium"
@@ -93,7 +100,8 @@
                            IsHitTestVisible="False"/>
                 <ContentPresenter Content="{Binding #TitleBarRoot.TitleBarContent}"
                                   HorizontalAlignment="Stretch"
-                                  VerticalAlignment="Center"/>
+                                  VerticalAlignment="Center"
+                                  chrome:WindowDecorationProperties.ElementRole="TitleBar"/>
             </Panel>
         </Border>
     </Grid>

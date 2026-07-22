@@ -81,7 +81,7 @@ public partial class SortFilterViewModel : ObservableObject
     partial void OnHideDotFilesChanged(bool value) => _settingsService?.Set("HideDotFiles", value);
     partial void OnHideDotFoldersChanged(bool value) => _settingsService?.Set("HideDotFolders", value);
 
-    public void ApplySortAndGroup(Action<ObservableCollection<FileSystemEntry>> setEntries, Action<string> setStatus)
+    public void ApplySortAndGroup(Action<ObservableCollection<FileSystemEntry>> setEntries)
     {
         if (_rawEntries.Count == 0) { setEntries([]); Groups = []; return; }
         var filtered = _rawEntries.Where(e => !e.Name.EndsWith(".fkfinder-tmp"));
@@ -94,13 +94,65 @@ public partial class SortFilterViewModel : ObservableObject
         var list = filtered.ToList();
         var sorted = SortEntries(list).ToList();
         setEntries(new ObservableCollection<FileSystemEntry>(sorted));
-        Groups = GroupField == GroupField.None ? [] : new ObservableCollection<FileGroup>(BuildGroups(sorted));
-        setStatus($"{sorted.Count} 项");
+        if (GroupField == GroupField.None)
+        {
+            if (Groups.Count > 0)
+                Groups = [];
+        }
+        else
+        {
+            Groups = new ObservableCollection<FileGroup>(BuildGroups(sorted));
+        }
     }
 
     public void SetRawEntries(IReadOnlyList<FileSystemEntry> entries)
     {
         _rawEntries = entries;
+    }
+
+    public void UpsertRawEntry(FileSystemEntry entry, IReadOnlyList<FileSystemEntry>? fallbackEntries = null)
+    {
+        var source = _rawEntries.Count == 0 && fallbackEntries != null ? fallbackEntries : _rawEntries;
+        _rawEntries = source
+            .Where(e => !string.Equals(e.FullPath, entry.FullPath, StringComparison.Ordinal))
+            .Append(entry)
+            .ToList();
+    }
+
+    public void RemoveRawEntries(ISet<string> fullPaths, IReadOnlyList<FileSystemEntry>? fallbackEntries = null)
+    {
+        var source = _rawEntries.Count == 0 && fallbackEntries != null ? fallbackEntries : _rawEntries;
+        _rawEntries = source
+            .Where(e => !fullPaths.Contains(e.FullPath))
+            .ToList();
+    }
+
+    public void ReplaceRawEntry(
+        string oldFullPath,
+        FileSystemEntry replacement,
+        IReadOnlyList<FileSystemEntry>? fallbackEntries = null)
+    {
+        var source = _rawEntries.Count == 0 && fallbackEntries != null ? fallbackEntries : _rawEntries;
+        var replaced = false;
+        var updated = new List<FileSystemEntry>(source.Count + 1);
+        foreach (var entry in source)
+        {
+            if (string.Equals(entry.FullPath, oldFullPath, StringComparison.Ordinal))
+            {
+                if (!replaced)
+                {
+                    updated.Add(replacement);
+                    replaced = true;
+                }
+                continue;
+            }
+
+            updated.Add(entry);
+        }
+
+        if (!replaced)
+            updated.Add(replacement);
+        _rawEntries = updated;
     }
 
     private IEnumerable<FileSystemEntry> SortEntries(IReadOnlyList<FileSystemEntry> entries) => SortField switch

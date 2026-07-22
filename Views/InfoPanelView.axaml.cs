@@ -45,6 +45,7 @@ public partial class InfoPanelView : UserControl
     private readonly IImageAnalysisService? _imageAnalysisService;
     private readonly IClipboardService? _clipboardService;
     private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
+    private readonly IFileTagService? _fileTagService;
     private CancellationTokenSource? _panelLoadCts;
     private string? _currentFilePath;
     private readonly HashSet<string> _selectedSystemTags = new(StringComparer.OrdinalIgnoreCase);
@@ -92,6 +93,7 @@ public partial class InfoPanelView : UserControl
         _imageAnalysisService = App.Services.GetService<IImageAnalysisService>();
         _clipboardService = App.Services.GetService<IClipboardService>();
         _directoryChangeNotifier = App.Services.GetService<IDirectoryChangeNotifier>();
+        _fileTagService = App.Services.GetService<IFileTagService>();
         RenderOptions.SetBitmapInterpolationMode(
             PreviewImage,
             global::Avalonia.Media.Imaging.BitmapInterpolationMode.MediumQuality);
@@ -837,17 +839,38 @@ public partial class InfoPanelView : UserControl
                 finderTags = pendingTags;
         }
 
+        var normalizedTags = finderTags
+            .Select(FileTagCatalog.NormalizeName)
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         CustomTagsPanel.Children.Clear();
 
         // Update system tag selection based on Finder tags
-        UpdateSystemTagSelection(finderTags);
+        UpdateSystemTagSelection(normalizedTags);
 
         // Show custom tags (non-color tags from Finder)
         var colorNames = new HashSet<string>(FinderTagColors.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
-        foreach (var tag in finderTags)
+        foreach (var tag in normalizedTags)
         {
             if (colorNames.Contains(tag)) continue;
             CustomTagsPanel.Children.Add(CreateTagChip(tag, filePath));
+        }
+
+        _ = SyncTagIndexAsync(filePath, normalizedTags);
+    }
+
+    private async Task SyncTagIndexAsync(string filePath, IReadOnlyList<string> finderTags)
+    {
+        if (_fileTagService == null) return;
+        try
+        {
+            await _fileTagService.ReplaceFileTagsAsync(filePath, finderTags);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to update file tag index: {ex.Message}");
         }
     }
 

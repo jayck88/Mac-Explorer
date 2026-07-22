@@ -33,6 +33,16 @@ public partial class SearchViewModel : ObservableObject
         IsSearchMode = true;
     }
 
+    public void RestoreSearchMode(string query, bool wasHomePageBeforeSearch)
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = null;
+        _wasHomePageBeforeSearch = wasHomePageBeforeSearch;
+        IsSearchMode = true;
+        SearchQuery = query;
+    }
+
     public void ExitSearchMode(bool restoreHomePage)
     {
         _searchCts?.Cancel();

@@ -12,6 +12,7 @@ public class BatchRenameService : IBatchRenameService
     private readonly IAiTagService? _aiTagService;
     private readonly IPinnedFolderService? _pinnedFolderService;
     private readonly IDirectoryChangeNotifier? _directoryChangeNotifier;
+    private readonly IFileTagService? _fileTagService;
     private readonly ILogger<BatchRenameService>? _logger;
 
     private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
@@ -22,6 +23,7 @@ public class BatchRenameService : IBatchRenameService
         IAiTagService? aiTagService = null,
         IPinnedFolderService? pinnedFolderService = null,
         IDirectoryChangeNotifier? directoryChangeNotifier = null,
+        IFileTagService? fileTagService = null,
         ILogger<BatchRenameService>? logger = null)
     {
         _fileService = fileService;
@@ -29,6 +31,7 @@ public class BatchRenameService : IBatchRenameService
         _aiTagService = aiTagService;
         _pinnedFolderService = pinnedFolderService;
         _directoryChangeNotifier = directoryChangeNotifier;
+        _fileTagService = fileTagService;
         _logger = logger;
     }
 
@@ -240,6 +243,9 @@ public class BatchRenameService : IBatchRenameService
                 // Update AI tags
                 if (_aiTagService != null)
                     await _aiTagService.UpdateFilePathAsync(oldPath, newPath);
+
+                if (_fileTagService != null)
+                    await _fileTagService.UpdatePathAsync(oldPath, newPath, cancellationToken);
 
                 // Update pinned folders
                 if (_pinnedFolderService != null)

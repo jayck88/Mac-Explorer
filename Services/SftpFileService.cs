@@ -170,11 +170,51 @@ public class SftpFileService : IFileService, IDisposable
         await Task.Run(() =>
         {
             var attrs = client.GetAttributes(remotePath);
-            if (attrs.IsDirectory)
-                client.DeleteDirectory(remotePath);
+            if (attrs.IsDirectory && !attrs.IsSymbolicLink)
+                DeleteDirectoryTree(client, remotePath);
             else
                 client.DeleteFile(remotePath);
         });
+    }
+
+    internal readonly record struct RemoteDeleteEntry(
+        string Name,
+        bool IsDirectory,
+        bool IsSymbolicLink);
+
+    private static void DeleteDirectoryTree(SftpClient client, string rootPath)
+        => DeleteDirectoryTree(
+            rootPath,
+            directory => client.ListDirectory(directory)
+                .Where(item => item.Name is not "." and not "..")
+                .Select(item => new RemoteDeleteEntry(
+                    item.Name,
+                    item.IsDirectory,
+                    item.IsSymbolicLink))
+                .ToArray(),
+            client.DeleteFile,
+            client.DeleteDirectory);
+
+    internal static void DeleteDirectoryTree(
+        string rootPath,
+        Func<string, IReadOnlyList<RemoteDeleteEntry>> listDirectory,
+        Action<string> deleteFile,
+        Action<string> deleteDirectory)
+    {
+        var normalizedRoot = rootPath.TrimEnd('/');
+        if (normalizedRoot.Length == 0)
+            throw new InvalidOperationException("Cannot delete the remote root directory");
+
+        foreach (var entry in listDirectory(normalizedRoot))
+        {
+            var childPath = normalizedRoot + "/" + entry.Name;
+            if (entry.IsDirectory && !entry.IsSymbolicLink)
+                DeleteDirectoryTree(childPath, listDirectory, deleteFile, deleteDirectory);
+            else
+                deleteFile(childPath);
+        }
+
+        deleteDirectory(normalizedRoot);
     }
 
     public async Task RenameAsync(string path, string newName)
@@ -316,7 +356,7 @@ public class SftpFileService : IFileService, IDisposable
                 var name = Path.GetFileName(remoteSrc);
                 var destPath = CombinePath(remoteDestDir, name);
                 var attrs = client.GetAttributes(remoteSrc);
-                if (attrs.IsDirectory)
+                if (attrs.IsDirectory && !attrs.IsSymbolicLink)
                     CopyDirectoryWithProgress(client, remoteSrc, destPath, ref bytesCopied, totalBytes, progress, ct);
                 else
                     CopyFileWithProgress(client, remoteSrc, destPath, ref bytesCopied, totalBytes, progress, ct);
@@ -327,7 +367,7 @@ public class SftpFileService : IFileService, IDisposable
                 ct.ThrowIfCancellationRequested();
                 var attrs = client.GetAttributes(remoteSrc);
                 if (attrs.IsDirectory)
-                    client.DeleteDirectory(remoteSrc);
+                    DeleteDirectoryTree(client, remoteSrc);
                 else
                     client.DeleteFile(remoteSrc);
             }

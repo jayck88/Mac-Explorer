@@ -10,9 +10,22 @@
 
     <UserControl.Resources>
         <converters:StringToGeometryConverter x:Key="StringToGeometry"/>
-        <converters:StringToColorConverter x:Key="StringToColor"/>
         <converters:IsNotEmptyConverter x:Key="IsNotEmpty"/>
     </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="PathIcon.sidebar-icon">
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
+            <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        </Style>
+        <Style Selector="Border.sidebar-item:pointerover PathIcon.sidebar-icon">
+            <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+        </Style>
+        <Style Selector="Border.sidebar-item.active PathIcon.sidebar-icon">
+            <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
+        </Style>
+    </UserControl.Styles>
 
     <ScrollViewer>
         <StackPanel Margin="4,8,4,4">
@@ -27,8 +40,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Person}"
-                                      Width="14" Height="14"
-                                      Foreground="#54A3F7"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding UserName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -42,8 +54,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Desktop}"
-                                      Width="14" Height="14"
-                                      Foreground="#54A3F7"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding DesktopName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -57,8 +68,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.FileText}"
-                                      Width="14" Height="14"
-                                      Foreground="#3B82F6"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding DocumentsName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -72,8 +82,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Download}"
-                                      Width="14" Height="14"
-                                      Foreground="#22C55E"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding DownloadsName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -87,8 +96,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Image}"
-                                      Width="14" Height="14"
-                                      Foreground="#E8912D"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding PicturesName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -102,8 +110,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Music}"
-                                      Width="14" Height="14"
-                                      Foreground="#EC4899"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding MusicName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -122,8 +129,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
                                             <PathIcon Data="{x:Static icons:Icons.Folder}"
-                                                      Width="14" Height="14"
-                                                      Foreground="#F59E0B"/>
+                                                      Classes="sidebar-icon"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="13"
@@ -155,8 +161,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                      Width="14" Height="14"
-                                      Foreground="#22D3EE"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding VolumeName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -175,8 +180,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
                                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                                      Width="14" Height="14"
-                                                      Foreground="#F97316"/>
+                                                      Classes="sidebar-icon"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="13"/>
@@ -204,8 +208,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Apps}"
-                                      Width="14" Height="14"
-                                      Foreground="#818CF8"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding ApplicationsName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -219,8 +222,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Trash}"
-                                      Width="14" Height="14"
-                                      Foreground="#A78BFA"/>
+                                      Classes="sidebar-icon"/>
                             <TextBlock Text="{Binding TrashName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -247,23 +249,24 @@
                                         PointerPressed="OnRemoteServerPressed">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
                                         <!-- Connection status dot -->
-                                        <Ellipse Grid.Column="0"
-                                                 Width="6" Height="6"
-                                                 Fill="{Binding StatusColor}"
-                                                 Margin="0,0,6,0"
-                                                 VerticalAlignment="Center"/>
+                                        <Grid Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
+                                              VerticalAlignment="Center">
+                                            <Ellipse Fill="{DynamicResource ColorSuccess}"
+                                                     IsVisible="{Binding IsConnected}"/>
+                                            <Ellipse Fill="{DynamicResource ColorTextDisabled}"
+                                                     IsVisible="{Binding !IsConnected}"/>
+                                        </Grid>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Background="Transparent"
                                                     Margin="0">
                                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                                      Width="14" Height="14"
-                                                      Foreground="#06B6D4"/>
+                                                      Classes="sidebar-icon"/>
                                             <StackPanel Margin="6,0,0,0">
                                                 <TextBlock Text="{Binding DisplayName}"
                                                            VerticalAlignment="Center" FontSize="13"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock Text="{Binding StatusText}"
-                                                           FontSize="10" Opacity="0.6"
-                                                           Foreground="{Binding StatusColor}"/>
+                                                           FontSize="10"
+                                                           Foreground="{DynamicResource ColorTextTertiary}"/>
                                             </StackPanel>
                                         </StackPanel>
                                         <Button Grid.Column="2"
@@ -308,8 +311,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.People}"
-                                          Width="14" Height="14"
-                                          Foreground="#EC4899"/>
+                                          Classes="sidebar-icon"/>
                                 <TextBlock Text="人物" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -322,8 +324,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Grid}"
-                                          Width="14" Height="14"
-                                          Foreground="#8B5CF6"/>
+                                          Classes="sidebar-icon"/>
                                 <TextBlock Text="分类" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -336,8 +337,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Location}"
-                                          Width="14" Height="14"
-                                          Foreground="#EF4444"/>
+                                          Classes="sidebar-icon"/>
                                 <TextBlock Text="地点" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -350,8 +350,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Calendar}"
-                                          Width="14" Height="14"
-                                          Foreground="#F59E0B"/>
+                                          Classes="sidebar-icon"/>
                                 <TextBlock Text="日期" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -364,8 +363,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Search}"
-                                          Width="14" Height="14"
-                                          Foreground="#3B82F6"/>
+                                          Classes="sidebar-icon"/>
                                 <TextBlock Text="文字搜索" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -415,8 +413,7 @@
                                             PointerPressed="OnCollectionPressed">
                                         <Grid ColumnDefinitions="Auto,*,Auto,Auto" Background="Transparent">
                                             <PathIcon Data="{x:Static icons:Icons.CollectionAdd}"
-                                                      Width="14" Height="14"
-                                                      Foreground="#F59E0B"/>
+                                                      Classes="sidebar-icon"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="13"/>
@@ -449,6 +446,52 @@
                                      LostFocus="OnNewCollectionLostFocus"/>
                         </Border>
                     </StackPanel>
+
+                    <!-- ═══ 标签 Tags ═══ -->
+                    <Grid ColumnDefinitions="Auto,*,Auto"
+                          Margin="0,8,0,2"
+                          PointerPressed="OnToggleTagsCollapsed"
+                          Cursor="Hand">
+                        <TextBlock Grid.Column="0" Text="标签"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Padding="18,4,0,4"/>
+                        <PathIcon Grid.Column="2" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource ColorTextQuaternary}"
+                                  Margin="0,4,12,4"
+                                  x:Name="TagsChevron"/>
+                    </Grid>
+
+                    <ItemsControl Classes="sidebar-items"
+                                  ItemsSource="{Binding SidebarTags}"
+                                  IsVisible="{Binding !IsTagsSectionCollapsed}"
+                                  x:Name="TagsPanel">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:FileTag">
+                                <Border Classes="sidebar-item"
+                                        Tag="{Binding}"
+                                        PointerPressed="OnTagPressed">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                                        <Grid Grid.Column="0" Width="15" Height="15">
+                                            <Ellipse Width="9" Height="9"
+                                                     Fill="{Binding ColorHex}"
+                                                     IsVisible="{Binding IsFinderColor}"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"/>
+                                            <PathIcon Data="{x:Static icons:Icons.Tag}"
+                                                      Classes="sidebar-icon"
+                                                      IsVisible="{Binding IsCustom}"/>
+                                        </Grid>
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                   Margin="8,0,0,0"
+                                                   VerticalAlignment="Center" FontSize="13"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </ScrollViewer>
 </UserControl>

@@ -62,7 +62,7 @@
                     <SolidColorBrush x:Key="DangerBrush" Color="#E5484D"/>
                     <SolidColorBrush x:Key="SuccessBrush" Color="#2F9E64"/>
                     <SolidColorBrush x:Key="WarningBrush" Color="#D99000"/>
-                    <SolidColorBrush x:Key="OverlayBrush" Color="#52000000"/>
+                    <SolidColorBrush x:Key="OverlayBrush" Color="#B8FFFFFF"/>
 
                     <!-- Compatibility semantic names used by existing views. -->
                     <SolidColorBrush x:Key="ColorBgPrimary" Color="#FAFAFA"/>

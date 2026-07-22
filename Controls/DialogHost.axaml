@@ -5,7 +5,7 @@
              IsVisible="False"
              Focusable="True"
              KeyDown="OnKeyDown">
-    <Grid Background="{DynamicResource OverlayBrush}">
+    <Grid Background="Transparent">
         <Border Background="Transparent" IsHitTestVisible="True" PointerPressed="OnOverlayPressed"/>
         <Border x:Name="DialogCard"
                 Classes="card"

@@ -336,8 +336,26 @@
         <Setter Property="Opacity" Value="0.35"/>
     </Style>
 
+    <Style Selector="Button.toolbar-btn PathIcon">
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Height" Value="14"/>
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+    </Style>
+
+    <Style Selector="Button.toolbar-btn:pointerover PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+    </Style>
+
+    <Style Selector="Button.toolbar-btn:disabled PathIcon">
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextDisabled}"/>
+    </Style>
+
     <Style Selector="Button.toolbar-btn.active">
         <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
+    </Style>
+
+    <Style Selector="Button.toolbar-btn.active PathIcon, Button.toolbar-btn.dropdown-open PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
@@ -449,7 +467,6 @@
         <Setter Property="BoxShadow" Value="{DynamicResource InsetHairlineShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
-                <DoubleTransition Property="Width" Duration="0:0:0.18" Easing="CubicEaseOut"/>
                 <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                 <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" Easing="CubicEaseOut"/>
             </Transitions>
@@ -522,7 +539,27 @@
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
-        <Setter Property="Margin" Value="14,12,14,4"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.file-group-row">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Margin" Value="0,6,0,0"/>
+    </Style>
+
+    <Style Selector="TextBlock.file-group-count">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="6,0,0,0"/>
+    </Style>
+
+    <Style Selector="Border.file-group-divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource ColorDivider}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="10,0,0,0"/>
     </Style>
 
     <!-- ═══ Grid View Styles ═══ -->

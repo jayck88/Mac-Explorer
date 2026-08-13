@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Net.Http.Json;
 using MacExplorer.Models;
 
@@ -22,7 +21,7 @@ public class AppUpdateService : IAppUpdateService
     public async Task<VersionInfo?> CheckVersionAsync(CancellationToken ct = default)
     {
         var response = await _http.GetFromJsonAsync<VersionCheckResponse>(
-            VersionApiUrl, ct);
+            VersionApiUrl, ct).ConfigureAwait(false);
 
         if (response?.Success != true)
             throw new InvalidOperationException("更新服务器返回了失败状态");
@@ -82,7 +81,7 @@ public class AppUpdateService : IAppUpdateService
         {
             ct.ThrowIfCancellationRequested();
             using var response = await _http.GetAsync(
-                downloadUri, HttpCompletionOption.ResponseHeadersRead, ct);
+                downloadUri, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
@@ -95,7 +94,7 @@ public class AppUpdateService : IAppUpdateService
             var total = response.Content.Headers.ContentLength ?? -1L;
 
             var tmpDownloadPath = downloadPath + ".part";
-            await using (var contentStream = await response.Content.ReadAsStreamAsync(ct))
+            await using (var contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
             await using (var fileStream = new FileStream(
                 tmpDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None,
                 bufferSize: 81920, useAsync: true))
@@ -103,9 +102,9 @@ public class AppUpdateService : IAppUpdateService
                 var buffer = new byte[81920];
                 var downloaded = 0L;
                 int read;
-                while ((read = await contentStream.ReadAsync(buffer, ct)) > 0)
+                while ((read = await contentStream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
                 {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, read), ct);
+                    await fileStream.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     downloaded += read;
                     var mbDown = downloaded / 1024.0 / 1024.0;
                     if (total > 0)
@@ -132,9 +131,8 @@ public class AppUpdateService : IAppUpdateService
             if (isZip || IsZipFile(downloadPath))
             {
                 progress?.Report((100, "正在解压更新包..."));
-                if (Directory.Exists(extractDir))
-                    Directory.Delete(extractDir, true);
-                ZipFile.ExtractToDirectory(downloadPath, extractDir);
+                TryDeleteDirectory(extractDir);
+                await ExtractUpdateArchiveAsync(downloadPath, extractDir, ct).ConfigureAwait(false);
 
                 appBundle = FindAppBundle(extractDir, currentBundleIdentifier)
                     ?? throw new InvalidOperationException("更新包中未找到 .app 文件");
@@ -147,16 +145,17 @@ public class AppUpdateService : IAppUpdateService
 
             ct.ThrowIfCancellationRequested();
             progress?.Report((100, "正在校验更新包..."));
-            EnsureLaunchableAppBundle(
+            await EnsureLaunchableAppBundleAsync(
                 appBundle,
                 currentBundleIdentifier,
-                currentExecutableName);
+                currentExecutableName,
+                ct).ConfigureAwait(false);
 
             progress?.Report((100, "正在准备安装..."));
             TryDeleteDirectory(stagedPath);
             if (Directory.Exists(stagedPath))
                 throw new InvalidOperationException("无法清理上次遗留的更新文件");
-            await RunProcessAsync("/usr/bin/ditto", [appBundle, stagedPath], ct);
+            await RunProcessAsync("/usr/bin/ditto", [appBundle, stagedPath], ct).ConfigureAwait(false);
 
             if (!Directory.Exists(stagedPath))
                 throw new InvalidOperationException("无法准备更新文件");
@@ -234,9 +233,9 @@ SUCCESS=1
 echo ""[$(date)] Update completed""
 ";
 
-            await File.WriteAllTextAsync(scriptPath, script, ct);
+            await File.WriteAllTextAsync(scriptPath, script, ct).ConfigureAwait(false);
 
-            await RunProcessAsync("/bin/chmod", ["+x", scriptPath], ct);
+            await RunProcessAsync("/bin/chmod", ["+x", scriptPath], ct).ConfigureAwait(false);
 
             var launcher = Process.Start(new ProcessStartInfo
             {
@@ -267,10 +266,20 @@ echo ""[$(date)] Update completed""
         }
     }
 
-    private static void EnsureLaunchableAppBundle(
+    internal static Task ExtractUpdateArchiveAsync(
+        string archivePath,
+        string destinationPath,
+        CancellationToken ct = default) =>
+        RunProcessAsync(
+            "/usr/bin/ditto",
+            ["-x", "-k", archivePath, destinationPath],
+            ct);
+
+    private static async Task EnsureLaunchableAppBundleAsync(
         string appBundle,
         string expectedBundleIdentifier,
-        string expectedExecutableName)
+        string expectedExecutableName,
+        CancellationToken ct)
     {
         var infoPlistPath = Path.Combine(
             appBundle, "Contents", "Info.plist");
@@ -301,35 +310,11 @@ echo ""[$(date)] Update completed""
             throw new InvalidOperationException(
                 $"更新包中的主程序不存在: Contents/MacOS/{executableName}");
 
-        using var chmod = Process.Start(new ProcessStartInfo
-        {
-            FileName = "/bin/chmod",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            ArgumentList = { "+x", executablePath },
-        });
-        chmod?.WaitForExit();
-
-        if (chmod?.ExitCode != 0)
-            throw new InvalidOperationException(
-                $"无法为更新包主程序添加可执行权限: Contents/MacOS/{executableName}");
-
-        using var codesign = Process.Start(new ProcessStartInfo
-        {
-            FileName = "/usr/bin/codesign",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardError = true,
-            ArgumentList = { "--verify", "--deep", "--strict", appBundle },
-        });
-        if (codesign == null)
-            throw new InvalidOperationException("无法校验更新包签名");
-
-        var codesignError = codesign.StandardError.ReadToEnd();
-        codesign.WaitForExit();
-        if (codesign.ExitCode != 0)
-            throw new InvalidOperationException(
-                $"更新包签名校验失败: {codesignError.Trim()}");
+        await RunProcessAsync("/bin/chmod", ["+x", executablePath], ct).ConfigureAwait(false);
+        await RunProcessAsync(
+            "/usr/bin/codesign",
+            ["--verify", "--deep", "--strict", appBundle],
+            ct).ConfigureAwait(false);
     }
 
     private static string? FindAppBundle(string root, string expectedBundleIdentifier)
@@ -437,9 +422,26 @@ echo ""[$(date)] Update completed""
 
         var outputTask = process.StandardOutput.ReadToEndAsync(ct);
         var errorTask = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-        var output = await outputTask;
-        var error = await errorTask;
+        try
+        {
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                // Process may already have exited.
+            }
+
+            throw;
+        }
+
+        var output = await outputTask.ConfigureAwait(false);
+        var error = await errorTask.ConfigureAwait(false);
 
         if (process.ExitCode != 0)
         {

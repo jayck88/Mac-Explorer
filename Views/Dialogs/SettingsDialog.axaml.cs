@@ -38,13 +38,28 @@ public partial class SettingsDialog : DialogWindow
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
     public SettingsDialog()
+        : this(
+            App.Services.GetRequiredService<IDefaultAppService>(),
+            App.Services.GetRequiredService<ISettingsService>(),
+            App.Services.GetRequiredService<IThemeService>(),
+            App.Services.GetRequiredService<IOpenWithAppService>(),
+            App.Services.GetRequiredService<IAppUpdateService>())
+    {
+    }
+
+    internal SettingsDialog(
+        IDefaultAppService defaultAppService,
+        ISettingsService settingsService,
+        IThemeService themeService,
+        IOpenWithAppService openWithService,
+        IAppUpdateService appUpdateService)
     {
         InitializeComponent();
-        _defaultAppService = App.Services.GetRequiredService<IDefaultAppService>();
-        _settingsService = App.Services.GetRequiredService<ISettingsService>();
-        _themeService = App.Services.GetRequiredService<IThemeService>();
-        _openWithService = App.Services.GetRequiredService<IOpenWithAppService>();
-        _appUpdateService = App.Services.GetRequiredService<IAppUpdateService>();
+        _defaultAppService = defaultAppService;
+        _settingsService = settingsService;
+        _themeService = themeService;
+        _openWithService = openWithService;
+        _appUpdateService = appUpdateService;
         Opened += OnOpened;
         Closed += (_, _) => _updateCancellation.Cancel();
     }
@@ -382,22 +397,17 @@ public partial class SettingsDialog : DialogWindow
             && _updateState is UpdateState.UpdateAvailable or UpdateState.Error)
         {
             SetUpdateState(UpdateState.Downloading, "准备下载...");
+            using var progressLifetime = CancellationTokenSource.CreateLinkedTokenSource(
+                _updateCancellation.Token);
+            var progressToken = progressLifetime.Token;
             try
             {
                 var progress = new Progress<(double Progress, string Status)>(report =>
                 {
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        var installing = report.Status.Contains("解压", StringComparison.Ordinal)
-                                         || report.Status.Contains("校验", StringComparison.Ordinal)
-                                         || report.Status.Contains("安装", StringComparison.Ordinal)
-                                         || report.Status.Contains("重启", StringComparison.Ordinal);
-                        _updateState = installing ? UpdateState.Installing : UpdateState.Downloading;
-                        UpdateProgress.IsIndeterminate = report.Progress < 0 || installing;
-                        if (report.Progress >= 0)
-                            UpdateProgress.Value = Math.Clamp(report.Progress, 0, 100);
-                        UpdateStatus.Text = report.Status;
-                    });
+                    if (progressToken.IsCancellationRequested)
+                        return;
+
+                    ApplyUpdateProgress(report);
                 });
                 await _appUpdateService.DownloadAndInstallAsync(
                     _availableVersion,
@@ -411,6 +421,10 @@ public partial class SettingsDialog : DialogWindow
             catch (Exception ex)
             {
                 SetUpdateState(UpdateState.Error, $"更新失败: {ex.Message}");
+            }
+            finally
+            {
+                progressLifetime.Cancel();
             }
             return;
         }
@@ -446,6 +460,29 @@ public partial class SettingsDialog : DialogWindow
         {
             SetUpdateState(UpdateState.Error, $"检查失败: {ex.Message}");
         }
+    }
+
+    private void ApplyUpdateProgress((double Progress, string Status) report)
+    {
+        if (_updateState is not UpdateState.Downloading and not UpdateState.Installing)
+            return;
+
+        var installing = report.Status.Contains("解压", StringComparison.Ordinal)
+                         || report.Status.Contains("校验", StringComparison.Ordinal)
+                         || report.Status.Contains("安装", StringComparison.Ordinal)
+                         || report.Status.Contains("重启", StringComparison.Ordinal);
+        if (_updateState == UpdateState.Installing && !installing)
+            return;
+
+        var nextState = installing ? UpdateState.Installing : UpdateState.Downloading;
+        if (_updateState != nextState)
+            SetUpdateState(nextState, report.Status);
+        else
+            UpdateStatus.Text = report.Status;
+
+        UpdateProgress.IsIndeterminate = report.Progress < 0 || installing;
+        if (report.Progress >= 0)
+            UpdateProgress.Value = Math.Clamp(report.Progress, 0, 100);
     }
 
     private void SetUpdateState(UpdateState state, string status)

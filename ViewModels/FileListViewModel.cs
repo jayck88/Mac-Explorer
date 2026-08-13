@@ -901,10 +901,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             or nameof(SortFilterViewModel.HideDotFiles)
             or nameof(SortFilterViewModel.HideDotFolders))
         {
-            ObservableCollection<FileSystemEntry>? sortedEntries = null;
-            _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
-            if (sortedEntries != null)
-                ReconcileEntriesInPlace(sortedEntries);
+            _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
         }
     }
 
@@ -1441,7 +1438,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         _sftpFileService.SetCurrentServer(serverId);
         var entries = await _sftpFileService.GetDirectoryContentsAsync(remotePath);
-        ApplyEntries(entries, reconcileInPlace: true);
+        ApplyEntries(entries);
         RefreshLocationStatus();
     }
 
@@ -2792,18 +2789,12 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (SelectedEntries.Count == 0) return;
         try
         {
-            var deletedEntries = SelectedEntries.ToList();
-            var deletedPaths = deletedEntries
-                .Select(e => e.FullPath)
-                .ToHashSet(StringComparer.Ordinal);
-
             await _fileOps.DeleteSelectedAsync(
-                deletedEntries,
+                SelectedEntries.ToList(),
                 _navigation.CurrentPath,
                 IsCollectionView,
                 _navigation.CurrentCollectionId,
-                msg => StatusText = msg,
-                excludeVm: this
+                msg => StatusText = msg
             );
 
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
@@ -2827,12 +2818,10 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     folders => { }
                 );
             else
-                RemoveDeletedEntriesPreservingList(deletedPaths);
-
-            if (!string.IsNullOrWhiteSpace(_navigation.CurrentPath))
-                _directoryChangeNotifier?.SuppressRefresh([_navigation.CurrentPath], TimeSpan.FromMilliseconds(700));
+                await LoadDirectoryContentsAsync(forceRefresh: true);
 
             RefreshLocationStatus();
+            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
         }
         catch (Exception ex) { StatusText = $"删除失败: {ex.Message}"; }
     }
@@ -2849,7 +2838,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 msg => StatusText = msg,
                 async (createdName) =>
                 {
-                    await AddCreatedEntryAndStartRenameAsync(createdName, isDirectory: true);
+                    ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
+                    await LoadDirectoryContentsAsync(forceRefresh: true);
+                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
+                    if (newEntry != null)
+                    {
+                        SelectedEntries.Clear();
+                        SelectedEntries.Add(newEntry);
+                        _fileOps.RaiseRequestRename(newEntry);
+                    }
+                    RefreshLocationStatus();
+                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
                 }
             );
         }
@@ -2869,194 +2868,21 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 msg => StatusText = msg,
                 async (createdName) =>
                 {
-                    await AddCreatedEntryAndStartRenameAsync(createdName, isDirectory: false);
+                    ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
+                    await LoadDirectoryContentsAsync(forceRefresh: true);
+                    var newEntry = Entries.FirstOrDefault(e => e.Name == createdName);
+                    if (newEntry != null)
+                    {
+                        SelectedEntries.Clear();
+                        SelectedEntries.Add(newEntry);
+                        _fileOps.RaiseRequestRename(newEntry);
+                    }
+                    RefreshLocationStatus();
+                    _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
                 }
             );
         }
         catch (Exception ex) { StatusText = $"创建文件失败: {ex.Message}"; }
-    }
-
-    private async Task AddCreatedEntryAndStartRenameAsync(string createdName, bool isDirectory)
-    {
-        ScrollBehaviorAfterLoad = ScrollMode.ScrollToSelected;
-
-        var createdEntry = await GetCreatedEntryAsync(createdName, isDirectory);
-        var visibleEntry = UpsertEntryPreservingList(createdEntry);
-
-        SelectedEntries.Clear();
-        SelectedEntries.Add(visibleEntry);
-        RefreshLocationStatus();
-        _fileOps.RaiseRequestRename(visibleEntry);
-
-        if (!string.IsNullOrWhiteSpace(_navigation.CurrentPath))
-        {
-            _directoryChangeNotifier?.SuppressRefresh([_navigation.CurrentPath], TimeSpan.FromMilliseconds(700));
-            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
-        }
-    }
-
-    private async Task<FileSystemEntry> GetCreatedEntryAsync(string createdName, bool isDirectory)
-    {
-        var fullPath = _fileService.CombinePath(_navigation.CurrentPath, createdName);
-        var indexedEntry = await _fileService.GetEntryAsync(fullPath);
-        if (indexedEntry != null)
-            return indexedEntry;
-
-        return CreateFileSystemEntrySnapshot(fullPath, createdName, isDirectory);
-    }
-
-    private static FileSystemEntry CreateFileSystemEntrySnapshot(string fullPath, string name, bool isDirectory)
-    {
-        if (isDirectory && Directory.Exists(fullPath))
-        {
-            var directory = new DirectoryInfo(fullPath);
-            return new FileSystemEntry
-            {
-                FullPath = fullPath,
-                Name = name,
-                Extension = directory.Extension,
-                IsDirectory = true,
-                LastModified = directory.LastWriteTime,
-                Created = directory.CreationTime,
-                IconKey = "folder"
-            };
-        }
-
-        if (!isDirectory && File.Exists(fullPath))
-        {
-            var file = new FileInfo(fullPath);
-            return new FileSystemEntry
-            {
-                FullPath = fullPath,
-                Name = name,
-                Extension = file.Extension,
-                IsDirectory = false,
-                Size = file.Length,
-                LastModified = file.LastWriteTime,
-                Created = file.CreationTime,
-                IconKey = "file-generic"
-            };
-        }
-
-        var now = DateTime.Now;
-        return new FileSystemEntry
-        {
-            FullPath = fullPath,
-            Name = name,
-            Extension = isDirectory ? string.Empty : Path.GetExtension(name),
-            IsDirectory = isDirectory,
-            LastModified = now,
-            Created = now,
-            IconKey = isDirectory ? "folder" : "file-generic"
-        };
-    }
-
-    private FileSystemEntry UpsertEntryPreservingList(FileSystemEntry entry)
-    {
-        ObservableCollection<FileSystemEntry>? sortedEntries = null;
-        _sortFilter.UpsertRawEntry(entry, Entries);
-        _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
-
-        if (sortedEntries == null)
-            return entry;
-
-        ReconcileEntriesInPlace(sortedEntries);
-        return Entries.FirstOrDefault(e => string.Equals(e.FullPath, entry.FullPath, StringComparison.Ordinal)) ?? entry;
-    }
-
-    private void ReconcileEntriesInPlace(IReadOnlyList<FileSystemEntry> desiredEntries)
-    {
-        for (var i = 0; i < desiredEntries.Count; i++)
-        {
-            var desired = desiredEntries[i];
-            if (i < Entries.Count && IsSameEntry(Entries[i], desired))
-            {
-                var current = Entries[i];
-                desired = ReuseOrPrepareEntry(current, desired);
-                if (!ReferenceEquals(current, desired))
-                    Entries[i] = desired;
-                continue;
-            }
-
-            var existingIndex = -1;
-            for (var j = i + 1; j < Entries.Count; j++)
-            {
-                if (IsSameEntry(Entries[j], desired))
-                {
-                    existingIndex = j;
-                    break;
-                }
-            }
-
-            if (existingIndex >= 0)
-            {
-                Entries.Move(existingIndex, i);
-                var current = Entries[i];
-                desired = ReuseOrPrepareEntry(current, desired);
-                if (!ReferenceEquals(current, desired))
-                    Entries[i] = desired;
-            }
-            else
-            {
-                Entries.Insert(i, desired);
-            }
-        }
-
-        while (Entries.Count > desiredEntries.Count)
-            Entries.RemoveAt(Entries.Count - 1);
-    }
-
-    private static bool IsSameEntry(FileSystemEntry left, FileSystemEntry right)
-        => string.Equals(left.FullPath, right.FullPath, StringComparison.Ordinal);
-
-    private static FileSystemEntry ReuseOrPrepareEntry(FileSystemEntry current, FileSystemEntry desired)
-    {
-        if (CanReuseEntrySnapshot(current, desired))
-            return current;
-
-        desired.IconUrl ??= current.IconUrl;
-        desired.ThumbnailUrl ??= current.ThumbnailUrl;
-        desired.IsCut = current.IsCut;
-        desired.IsSelected = current.IsSelected;
-        return desired;
-    }
-
-    private static bool CanReuseEntrySnapshot(FileSystemEntry current, FileSystemEntry desired)
-    {
-        return string.Equals(current.FullPath, desired.FullPath, StringComparison.Ordinal)
-               && string.Equals(current.Name, desired.Name, StringComparison.Ordinal)
-               && current.IsDirectory == desired.IsDirectory
-               && current.Size == desired.Size
-               && current.LastModified == desired.LastModified
-               && current.Created == desired.Created
-               && string.Equals(current.Extension, desired.Extension, StringComparison.Ordinal)
-               && current.IsHidden == desired.IsHidden
-               && current.IsSymbolicLink == desired.IsSymbolicLink
-               && current.IsReadable == desired.IsReadable
-               && current.IsWritable == desired.IsWritable
-               && string.Equals(current.IconKey, desired.IconKey, StringComparison.Ordinal)
-               && current.IsVirtual == desired.IsVirtual
-               && string.Equals(current.VirtualFolderType, desired.VirtualFolderType, StringComparison.Ordinal)
-               && string.Equals(current.VirtualFolderKey, desired.VirtualFolderKey, StringComparison.Ordinal)
-               && current.VirtualItemCount == desired.VirtualItemCount;
-    }
-
-    private void RemoveDeletedEntriesPreservingList(ISet<string> deletedPaths)
-    {
-        if (deletedPaths.Count == 0) return;
-
-        ObservableCollection<FileSystemEntry>? sortedEntries = null;
-        _sortFilter.RemoveRawEntries(deletedPaths, Entries);
-        _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
-
-        if (sortedEntries != null)
-            ReconcileEntriesInPlace(sortedEntries);
-
-        for (var i = SelectedEntries.Count - 1; i >= 0; i--)
-        {
-            if (deletedPaths.Contains(SelectedEntries[i].FullPath))
-                SelectedEntries.RemoveAt(i);
-        }
     }
 
     public async Task MoveEntryAsync(FileSystemEntry source, FileSystemEntry targetFolder)
@@ -3178,30 +3004,24 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (entry.IsVirtual)
             return false;
 
-        var oldPath = entry.FullPath;
-        var dir = Path.GetDirectoryName(oldPath) ?? "";
-        var newPath = Path.Combine(dir, newName);
         try
         {
+            var oldPath = entry.FullPath;
             var wasPinned = entry.IsDirectory && await _fileOps.IsFolderPinnedAsync(oldPath);
-            if (_directoryChangeNotifier != null && !string.IsNullOrWhiteSpace(dir))
-                _directoryChangeNotifier.SuppressRefreshFor(this, [dir], TimeSpan.FromMilliseconds(1500));
-
-            await _fileOps.RenameEntryAsync(
-                entry,
-                newName,
-                IsAiView,
-                msg => StatusText = msg,
-                excludeVm: this);
-
-            var renamedEntry = await _fileService.GetEntryAsync(newPath)
-                               ?? CreateRenamedEntrySnapshot(entry, newPath, newName);
-            ReplaceRenamedEntryPreservingList(oldPath, renamedEntry);
+            await _fileOps.RenameEntryAsync(entry, newName, IsAiView, msg => StatusText = msg);
 
             if (wasPinned)
                 await _collection.LoadPinnedFoldersAsync();
 
+            ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
+            await LoadDirectoryContentsAsync(forceRefresh: true);
+
+            var renamed = Entries.FirstOrDefault(e => e.Name == newName);
+            if (renamed != null)
+                ReplaceSelection([renamed], renamed);
+
             RefreshLocationStatus();
+            _directoryChangeNotifier?.NotifyChanged([_navigation.CurrentPath], this);
             return true;
         }
         catch (Exception ex)
@@ -3209,72 +3029,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             StatusText = $"重命名失败: {ex.Message}";
             return false;
         }
-    }
-
-    private void ReplaceRenamedEntryPreservingList(string oldPath, FileSystemEntry renamedEntry)
-    {
-        var selectedPaths = SelectedEntries.Select(selected => selected.FullPath).ToArray();
-        var anchorPath = _lastClickedPath;
-
-        ObservableCollection<FileSystemEntry>? sortedEntries = null;
-        _sortFilter.ReplaceRawEntry(oldPath, renamedEntry, Entries);
-        _sortFilter.ApplySortAndGroup(entries => sortedEntries = entries);
-        if (sortedEntries != null)
-            ReconcileEntriesInPlace(sortedEntries);
-
-        var visibleRenamedEntry = Entries.FirstOrDefault(candidate =>
-            string.Equals(candidate.FullPath, renamedEntry.FullPath, StringComparison.Ordinal));
-        var restoredSelection = selectedPaths
-            .Select(path => string.Equals(path, oldPath, StringComparison.Ordinal)
-                ? renamedEntry.FullPath
-                : path)
-            .Select(path => Entries.FirstOrDefault(candidate =>
-                string.Equals(candidate.FullPath, path, StringComparison.Ordinal)))
-            .OfType<FileSystemEntry>()
-            .ToList();
-        var restoredAnchorPath = string.Equals(anchorPath, oldPath, StringComparison.Ordinal)
-            ? renamedEntry.FullPath
-            : anchorPath;
-        var restoredAnchor = restoredAnchorPath == null
-            ? restoredSelection.FirstOrDefault()
-            : restoredSelection.FirstOrDefault(candidate =>
-                  string.Equals(candidate.FullPath, restoredAnchorPath, StringComparison.Ordinal))
-              ?? visibleRenamedEntry
-              ?? restoredSelection.FirstOrDefault();
-
-        ReplaceSelection(restoredSelection, restoredAnchor);
-        ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
-    }
-
-    private static FileSystemEntry CreateRenamedEntrySnapshot(
-        FileSystemEntry source,
-        string newPath,
-        string newName)
-    {
-        return new FileSystemEntry
-        {
-            FullPath = newPath,
-            Name = newName,
-            IsDirectory = source.IsDirectory,
-            Size = source.Size,
-            LastModified = source.LastModified,
-            Created = source.Created,
-            Extension = Path.GetExtension(newName),
-            IsHidden = newName.StartsWith('.'),
-            IsSymbolicLink = source.IsSymbolicLink,
-            IsReadable = source.IsReadable,
-            IsWritable = source.IsWritable,
-            IconKey = source.IconKey,
-            IconUrl = source.IconUrl,
-            ThumbnailUrl = source.ThumbnailUrl,
-            IsCut = source.IsCut,
-            IsVirtual = source.IsVirtual,
-            VirtualFolderType = source.VirtualFolderType,
-            VirtualFolderKey = source.VirtualFolderKey,
-            VirtualItemCount = source.VirtualItemCount,
-            GitStatus = source.GitStatus,
-            HasGitChanges = source.HasGitChanges
-        };
     }
 
     // ── Archive Operations ──
@@ -3904,8 +3658,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     {
         var work = BeginDirectoryWork();
         IReadOnlyList<FileSystemEntry> entries;
-        var publishedDirectoryContents = false;
-        var publishedIndexContents = false;
         try
         {
             // Skip index for /Applications paths because they need to merge /System/Applications counterpart
@@ -3918,8 +3670,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 if (entries.Count > 0)
                 {
                     ApplyEntries(entries);
-                    publishedDirectoryContents = true;
-                    publishedIndexContents = true;
                     StartDirectoryBackgroundWork(entries, work, includeAnalysis: false);
                 }
             }
@@ -3929,22 +3679,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         try
         {
             var accumulated = new List<FileSystemEntry>();
-            var publishedCount = -1;
             await foreach (var batch in _fileService.EnumerateDirectoryBatchesAsync(
                                _navigation.CurrentPath, 256, work.Token))
             {
                 if (!IsCurrentDirectoryWork(work)) return;
                 accumulated.AddRange(batch);
-                if (!forceRefresh && !publishedIndexContents)
-                {
-                    ApplyEntries(accumulated, reconcileInPlace: publishedDirectoryContents);
-                    publishedDirectoryContents = true;
-                    publishedCount = accumulated.Count;
-                }
+                ApplyEntries(accumulated);
             }
             entries = accumulated;
-            if (forceRefresh || publishedCount != accumulated.Count)
-                ApplyEntries(entries, reconcileInPlace: forceRefresh || publishedDirectoryContents);
         }
         catch (OperationCanceledException)
         {
@@ -3952,7 +3694,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         if (!IsCurrentDirectoryWork(work)) return;
 
-        StartDirectoryBackgroundWork(Entries.ToArray(), work, includeAnalysis: true);
+        ApplyEntries(entries);
+        StartDirectoryBackgroundWork(entries, work, includeAnalysis: true);
         QueueDirectoryIndexUpdate(_navigation.CurrentPath, entries, work);
         RefreshLocationStatus();
 
@@ -4020,7 +3763,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _ = ResolveIconsInBackgroundAsync(entries, work);
     }
 
-    private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries, bool reconcileInPlace = false)
+    private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)
     {
         var selectedPaths = SelectedEntries
             .Select(e => e.FullPath)
@@ -4028,17 +3771,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var anchorPath = _lastClickedPath;
 
         _sortFilter.SetRawEntries(entries);
-        if (reconcileInPlace)
-        {
-            ObservableCollection<FileSystemEntry>? sortedEntries = null;
-            _sortFilter.ApplySortAndGroup(sorted => sortedEntries = sorted);
-            if (sortedEntries != null)
-                ReconcileEntriesInPlace(sortedEntries);
-        }
-        else
-        {
-            _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
-        }
+        _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
 
         var restoredSelection = new List<FileSystemEntry>();
         FileSystemEntry? restoredAnchor = null;
@@ -4243,7 +3976,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     private void ApplyEntriesPreservingSelection(IReadOnlyList<FileSystemEntry> entries)
     {
-        ApplyEntries(entries, reconcileInPlace: true);
+        ApplyEntries(entries);
     }
 
     private static bool HasAncestorPath(string relativePath, HashSet<string> paths)

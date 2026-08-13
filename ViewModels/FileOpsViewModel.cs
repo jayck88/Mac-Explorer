@@ -138,8 +138,7 @@ public partial class FileOpsViewModel : ObservableObject
         string currentPath,
         bool isCollectionView,
         int? currentCollectionId,
-        Action<string>? setStatus = null,
-        FileListViewModel? excludeVm = null)
+        Action<string>? setStatus = null)
     {
         if (selectedEntries.Count == 0) return;
         try
@@ -177,9 +176,9 @@ public partial class FileOpsViewModel : ObservableObject
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
             if (parentDirs.Length > 0)
-                _directoryChangeNotifier?.NotifyChanged(parentDirs, excludeVm);
+                _directoryChangeNotifier?.NotifyChanged(parentDirs, null);
             else
-                _directoryChangeNotifier?.NotifyChanged([currentPath], excludeVm);
+                _directoryChangeNotifier?.NotifyChanged([currentPath], null);
         }
         catch (Exception ex)
         {
@@ -368,8 +367,7 @@ public partial class FileOpsViewModel : ObservableObject
         FileSystemEntry entry,
         string newName,
         bool isAiView,
-        Action<string>? setStatus = null,
-        FileListViewModel? excludeVm = null)
+        Action<string>? setStatus = null)
     {
         // Virtual face cluster rename - handled by AiViewModel
         if (entry.IsVirtual)
@@ -403,7 +401,7 @@ public partial class FileOpsViewModel : ObservableObject
                 await _pinnedFolderService.UpdateFolderPathAsync(oldPath, newPath, newName);
             }
 
-            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(oldPath) ?? ""], excludeVm);
+            _directoryChangeNotifier?.NotifyChanged([Path.GetDirectoryName(oldPath) ?? ""], null);
         }
         catch (Exception ex)
         {

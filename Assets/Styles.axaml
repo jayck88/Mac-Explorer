@@ -214,7 +214,7 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="7"/>
-        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIcon}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -236,13 +236,11 @@
     <Style Selector="ToggleButton.view-mode-toggle:pointerover">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle:checked">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle:pressed">
@@ -257,18 +255,6 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="CornerRadius" Value="7"/>
-    </Style>
-
-    <Style Selector="ToggleButton.view-mode-toggle PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIcon}"/>
-    </Style>
-
-    <Style Selector="ToggleButton.view-mode-toggle:pointerover PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
-    </Style>
-
-    <Style Selector="ToggleButton.view-mode-toggle:checked PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource ViewModeToggleIconActive}"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle:pointerover Border.view-mode-toggle-surface">
@@ -339,23 +325,10 @@
     <Style Selector="Button.toolbar-btn PathIcon">
         <Setter Property="Width" Value="14"/>
         <Setter Property="Height" Value="14"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
-    </Style>
-
-    <Style Selector="Button.toolbar-btn:pointerover PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
-    </Style>
-
-    <Style Selector="Button.toolbar-btn:disabled PathIcon">
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextDisabled}"/>
     </Style>
 
     <Style Selector="Button.toolbar-btn.active">
         <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
-    </Style>
-
-    <Style Selector="Button.toolbar-btn.active PathIcon, Button.toolbar-btn.dropdown-open PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 

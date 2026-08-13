@@ -24,7 +24,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
@@ -52,13 +52,9 @@
         <Style Selector="Button.title-nav-button PathIcon">
             <Setter Property="Width" Value="14"/>
             <Setter Property="Height" Value="14"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
         </Style>
         <Style Selector="Button.title-nav-back">
             <Setter Property="Background" Value="{DynamicResource ColorSurfaceSecondary}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
-        </Style>
-        <Style Selector="Button.title-nav-back PathIcon">
             <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
         </Style>
         <Style Selector="Button.title-nav-button:pointerover">
@@ -80,10 +76,6 @@
             <Setter Property="Opacity" Value="0.42"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
-        <Style Selector="Button.title-nav-button:disabled PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextDisabled}"/>
-        </Style>
-
         <Style Selector="Grid.title-search-host">
             <Setter Property="Width" Value="220"/>
             <Setter Property="Height" Value="32"/>
@@ -139,7 +131,7 @@
         <Style Selector="Button.title-search-trigger PathIcon">
             <Setter Property="Width" Value="14"/>
             <Setter Property="Height" Value="14"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         </Style>
         <Style Selector="Button.title-search-trigger:pointerover">
             <Setter Property="Background" Value="{DynamicResource AddressbarBgHover}"/>

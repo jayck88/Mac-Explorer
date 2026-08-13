@@ -17,13 +17,6 @@
         <Style Selector="PathIcon.sidebar-icon">
             <Setter Property="Width" Value="15"/>
             <Setter Property="Height" Value="15"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
-        </Style>
-        <Style Selector="Border.sidebar-item:pointerover PathIcon.sidebar-icon">
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
-        </Style>
-        <Style Selector="Border.sidebar-item.active PathIcon.sidebar-icon">
-            <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
         </Style>
     </UserControl.Styles>
 
@@ -40,7 +33,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Person}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#54A3F7"/>
                             <TextBlock Text="{Binding UserName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -54,7 +47,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Desktop}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#54A3F7"/>
                             <TextBlock Text="{Binding DesktopName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -68,7 +61,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.FileText}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#3B82F6"/>
                             <TextBlock Text="{Binding DocumentsName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -82,7 +75,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Download}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#22C55E"/>
                             <TextBlock Text="{Binding DownloadsName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -96,7 +89,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Image}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#E8912D"/>
                             <TextBlock Text="{Binding PicturesName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -110,7 +103,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Music}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#EC4899"/>
                             <TextBlock Text="{Binding MusicName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -129,7 +122,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
                                             <PathIcon Data="{x:Static icons:Icons.Folder}"
-                                                      Classes="sidebar-icon"/>
+                                                      Classes="sidebar-icon" Foreground="#F59E0B"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="13"
@@ -161,7 +154,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#22D3EE"/>
                             <TextBlock Text="{Binding VolumeName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -180,7 +173,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Background="Transparent">
                                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                                      Classes="sidebar-icon"/>
+                                                      Classes="sidebar-icon" Foreground="#F97316"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="13"/>
@@ -208,7 +201,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Apps}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#818CF8"/>
                             <TextBlock Text="{Binding ApplicationsName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -222,7 +215,7 @@
                             PointerPressed="OnSidebarItemPressed">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
                             <PathIcon Data="{x:Static icons:Icons.Trash}"
-                                      Classes="sidebar-icon"/>
+                                      Classes="sidebar-icon" Foreground="#A78BFA"/>
                             <TextBlock Text="{Binding TrashName}"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Center" FontSize="13"/>
@@ -259,7 +252,7 @@
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Background="Transparent"
                                                     Margin="0">
                                             <PathIcon Data="{x:Static icons:Icons.ExternalDrive}"
-                                                      Classes="sidebar-icon"/>
+                                                      Classes="sidebar-icon" Foreground="#06B6D4"/>
                                             <StackPanel Margin="6,0,0,0">
                                                 <TextBlock Text="{Binding DisplayName}"
                                                            VerticalAlignment="Center" FontSize="13"
@@ -311,7 +304,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.People}"
-                                          Classes="sidebar-icon"/>
+                                          Classes="sidebar-icon" Foreground="#EC4899"/>
                                 <TextBlock Text="人物" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -324,7 +317,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Grid}"
-                                          Classes="sidebar-icon"/>
+                                          Classes="sidebar-icon" Foreground="#8B5CF6"/>
                                 <TextBlock Text="分类" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -337,7 +330,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Location}"
-                                          Classes="sidebar-icon"/>
+                                          Classes="sidebar-icon" Foreground="#EF4444"/>
                                 <TextBlock Text="地点" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -350,7 +343,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Calendar}"
-                                          Classes="sidebar-icon"/>
+                                          Classes="sidebar-icon" Foreground="#F59E0B"/>
                                 <TextBlock Text="日期" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -363,7 +356,7 @@
                                 PointerPressed="OnSidebarItemPressed">
                             <StackPanel Orientation="Horizontal" Background="Transparent">
                                 <PathIcon Data="{x:Static icons:Icons.Search}"
-                                          Classes="sidebar-icon"/>
+                                          Classes="sidebar-icon" Foreground="#3B82F6"/>
                                 <TextBlock Text="文字搜索" Margin="8,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
@@ -413,7 +406,7 @@
                                             PointerPressed="OnCollectionPressed">
                                         <Grid ColumnDefinitions="Auto,*,Auto,Auto" Background="Transparent">
                                             <PathIcon Data="{x:Static icons:Icons.CollectionAdd}"
-                                                      Classes="sidebar-icon"/>
+                                                      Classes="sidebar-icon" Foreground="#F59E0B"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
                                                        Margin="8,0,0,0"
                                                        VerticalAlignment="Center" FontSize="13"/>
@@ -481,6 +474,7 @@
                                                      VerticalAlignment="Center"/>
                                             <PathIcon Data="{x:Static icons:Icons.Tag}"
                                                       Classes="sidebar-icon"
+                                                      Foreground="{Binding ColorHex}"
                                                       IsVisible="{Binding IsCustom}"/>
                                         </Grid>
                                         <TextBlock Grid.Column="1" Text="{Binding Name}"

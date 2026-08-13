@@ -55,13 +55,13 @@ public sealed class PerformancePipelineTests
     }
 
     [Fact]
-    public async Task DirectoryEnumeration_PublishesACompactFirstBatch()
+    public async Task DirectoryEnumeration_UsesRequestedBatchSize()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"macexplorer-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            for (var i = 0; i < 200; i++)
+            for (var i = 0; i < 300; i++)
                 await File.WriteAllTextAsync(
                     Path.Combine(directory, $"file-{i:D3}.txt"),
                     "x",
@@ -76,8 +76,8 @@ public sealed class PerformancePipelineTests
                 batches.Add(batch);
 
             Assert.NotEmpty(batches);
-            Assert.Equal(64, batches[0].Count);
-            Assert.Equal(200, batches.Sum(batch => batch.Count));
+            Assert.Equal(256, batches[0].Count);
+            Assert.Equal(300, batches.Sum(batch => batch.Count));
             Assert.All(batches, batch => Assert.InRange(batch.Count, 1, 256));
         }
         finally

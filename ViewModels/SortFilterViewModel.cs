@@ -110,51 +110,6 @@ public partial class SortFilterViewModel : ObservableObject
         _rawEntries = entries;
     }
 
-    public void UpsertRawEntry(FileSystemEntry entry, IReadOnlyList<FileSystemEntry>? fallbackEntries = null)
-    {
-        var source = _rawEntries.Count == 0 && fallbackEntries != null ? fallbackEntries : _rawEntries;
-        _rawEntries = source
-            .Where(e => !string.Equals(e.FullPath, entry.FullPath, StringComparison.Ordinal))
-            .Append(entry)
-            .ToList();
-    }
-
-    public void RemoveRawEntries(ISet<string> fullPaths, IReadOnlyList<FileSystemEntry>? fallbackEntries = null)
-    {
-        var source = _rawEntries.Count == 0 && fallbackEntries != null ? fallbackEntries : _rawEntries;
-        _rawEntries = source
-            .Where(e => !fullPaths.Contains(e.FullPath))
-            .ToList();
-    }
-
-    public void ReplaceRawEntry(
-        string oldFullPath,
-        FileSystemEntry replacement,
-        IReadOnlyList<FileSystemEntry>? fallbackEntries = null)
-    {
-        var source = _rawEntries.Count == 0 && fallbackEntries != null ? fallbackEntries : _rawEntries;
-        var replaced = false;
-        var updated = new List<FileSystemEntry>(source.Count + 1);
-        foreach (var entry in source)
-        {
-            if (string.Equals(entry.FullPath, oldFullPath, StringComparison.Ordinal))
-            {
-                if (!replaced)
-                {
-                    updated.Add(replacement);
-                    replaced = true;
-                }
-                continue;
-            }
-
-            updated.Add(entry);
-        }
-
-        if (!replaced)
-            updated.Add(replacement);
-        _rawEntries = updated;
-    }
-
     private IEnumerable<FileSystemEntry> SortEntries(IReadOnlyList<FileSystemEntry> entries) => SortField switch
     {
         SortField.Name => SortAscending

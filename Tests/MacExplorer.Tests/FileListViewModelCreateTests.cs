@@ -9,7 +9,7 @@ namespace MacExplorer.Tests;
 public sealed class FileListViewModelCreateTests
 {
     [Fact]
-    public async Task CreateNewFileAsync_SelectsCreatedEntryAndRequestsRenameWithoutDirectoryReload()
+    public async Task CreateNewFileAsync_ReloadsDirectoryThenSelectsCreatedEntryAndRequestsRename()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var viewModel = CreateViewModel(fileService);
@@ -29,11 +29,11 @@ public sealed class FileListViewModelCreateTests
         var created = Assert.Single(viewModel.Entries, e => e.Name == "未命名.txt");
         Assert.Same(created, Assert.Single(viewModel.SelectedEntries));
         Assert.Same(created, Assert.Single(renamedEntries));
-        Assert.Equal(0, fileService.EnumerateDirectoryCallCount);
+        Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
     [Fact]
-    public async Task ConfirmDeleteSelectedAsync_RemovesDeletedEntryWithoutDirectoryReload()
+    public async Task ConfirmDeleteSelectedAsync_ReloadsDirectoryAfterDelete()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var viewModel = CreateViewModel(fileService);
@@ -53,6 +53,8 @@ public sealed class FileListViewModelCreateTests
             IsDirectory = false,
             IconKey = "file-text"
         };
+        fileService.Seed(deleted);
+        fileService.Seed(survivor);
         viewModel.Entries.Add(deleted);
         viewModel.Entries.Add(survivor);
         viewModel.SelectedEntries.Add(deleted);
@@ -60,13 +62,13 @@ public sealed class FileListViewModelCreateTests
         await viewModel.ConfirmDeleteSelectedAsync();
 
         Assert.DoesNotContain(viewModel.Entries, e => e.FullPath == deleted.FullPath);
-        Assert.Same(survivor, Assert.Single(viewModel.Entries));
+        Assert.Equal(survivor.FullPath, Assert.Single(viewModel.Entries).FullPath);
         Assert.Empty(viewModel.SelectedEntries);
-        Assert.Equal(0, fileService.EnumerateDirectoryCallCount);
+        Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
     }
 
     [Fact]
-    public async Task RenameEntryAsync_ReconcilesInPlaceAndSuppressesDuplicateRefresh()
+    public async Task RenameEntryAsync_ReloadsDirectoryAndReselectsRenamedEntry()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var notifier = new FakeDirectoryChangeNotifier();
@@ -87,18 +89,17 @@ public sealed class FileListViewModelCreateTests
         var renamed = await viewModel.RenameEntryAsync(original, "After.txt");
 
         Assert.True(renamed);
-        Assert.Same(entries, viewModel.Entries);
+        Assert.NotSame(entries, viewModel.Entries);
         var visible = Assert.Single(viewModel.Entries);
         Assert.Equal("After.txt", visible.Name);
         Assert.Equal("/tmp/FKFinderTests/After.txt", visible.FullPath);
         Assert.Same(visible, Assert.Single(viewModel.SelectedEntries));
-        Assert.Equal(0, fileService.EnumerateDirectoryCallCount);
-        Assert.Same(viewModel, notifier.SuppressedViewModel);
+        Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
         Assert.Same(viewModel, notifier.ExcludedViewModel);
     }
 
     [Fact]
-    public async Task RefreshAsync_KeepsCollectionAndUnchangedEntriesStable()
+    public async Task RefreshAsync_ReplacesCollectionWithFreshEntries()
     {
         var fileService = new FakeFileService("/tmp/FKFinderTests");
         var viewModel = CreateViewModel(fileService);
@@ -122,7 +123,7 @@ public sealed class FileListViewModelCreateTests
 
         await viewModel.RefreshAsync();
 
-        Assert.Same(entries, viewModel.Entries);
+        Assert.NotSame(entries, viewModel.Entries);
         Assert.Equal(300, viewModel.Entries.Count);
         Assert.Equal(0, collectionChanges);
         Assert.Equal(1, fileService.EnumerateDirectoryCallCount);
@@ -273,7 +274,11 @@ public sealed class FileListViewModelCreateTests
             return Task.FromResult(fullPath);
         }
 
-        public Task DeleteAsync(string path, bool moveToTrash = true) => Task.CompletedTask;
+        public Task DeleteAsync(string path, bool moveToTrash = true)
+        {
+            _entries.Remove(path);
+            return Task.CompletedTask;
+        }
         public Task RenameAsync(string path, string newName)
         {
             if (_entries.Remove(path, out var entry))
@@ -351,7 +356,6 @@ public sealed class FileListViewModelCreateTests
 
     private sealed class FakeDirectoryChangeNotifier : IDirectoryChangeNotifier
     {
-        public FileListViewModel? SuppressedViewModel { get; private set; }
         public FileListViewModel? ExcludedViewModel { get; private set; }
 
         public void NotifyChanged(string[] directoryPaths, FileListViewModel? excludeVm = null)
@@ -360,9 +364,6 @@ public sealed class FileListViewModelCreateTests
         public void SuppressRefresh(string[] directoryPaths, TimeSpan duration)
         {
         }
-
-        public void SuppressRefreshFor(FileListViewModel vm, string[] directoryPaths, TimeSpan duration)
-            => SuppressedViewModel = vm;
 
         public void Subscribe(FileListViewModel vm)
         {

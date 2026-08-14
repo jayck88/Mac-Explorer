@@ -160,10 +160,11 @@ public partial class App : Application
         services.AddSingleton<Platforms.MacCatalyst.Services.MacFileService>(sp => new Platforms.MacCatalyst.Services.MacFileService(sp.GetRequiredService<SqliteFileIndex>()));
         services.AddSingleton<IRemoteConnectionService, Services.Impl.RemoteConnectionService>();
         services.AddSingleton<SftpFileService>();
+        services.AddSingleton<IRemoteFileService>(sp => sp.GetRequiredService<SftpFileService>());
         services.AddSingleton<IRemoteFileEditService, Services.Impl.RemoteFileEditService>();
         services.AddSingleton<IFileService>(sp => new CompositeFileService(
             sp.GetRequiredService<Platforms.MacCatalyst.Services.MacFileService>(),
-            sp.GetRequiredService<SftpFileService>(),
+            sp.GetRequiredService<IRemoteFileService>(),
             sp.GetService<IBackgroundTaskManager>()));
         services.AddSingleton<IApplicationLauncherService, Platforms.MacCatalyst.Services.MacApplicationLauncherService>();
         services.AddSingleton<IContextMenuService, Platforms.MacCatalyst.Services.MacContextMenuService>();
@@ -240,7 +241,7 @@ public partial class App : Application
                 sp.GetService<IDragDropBridge>(), sp.GetRequiredService<IDirectoryChangeNotifier>(),
                 sp.GetService<ILoggerFactory>(), sp.GetService<IGitStatusService>(),
                 sp.GetService<IDisplayNameService>(), sp.GetService<IVolumeMonitorService>(),
-                sp.GetService<IRemoteConnectionService>(), sp.GetService<SftpFileService>(),
+                sp.GetService<IRemoteConnectionService>(), sp.GetService<IRemoteFileService>(),
                 sp.GetService<IRemoteFileEditService>(), sp.GetService<IOpenWithAppService>(),
                 sp.GetService<IFileTagService>());
             viewModel.UseColumnLayoutService(sp.GetRequiredService<FileListColumnLayoutService>());

@@ -126,7 +126,7 @@
                     PointerReleased="OnItemPointerReleased"
                     DoubleTapped="OnFileItemDoubleTapped">
                 <Grid Classes="file-list-row-grid" ColumnDefinitions="22,420,170,110,110,*"
-                      Loaded="OnFileListRowLoaded">
+                      AttachedToVisualTree="OnFileListRowAttachedToVisualTree">
                     <Grid Grid.Column="0" Width="22" Height="22" VerticalAlignment="Center">
                         <Image Classes="entry-icon-image"
                                Source="{Binding ., Converter={StaticResource FileIconConverter}, ConverterParameter=24}"
@@ -379,7 +379,7 @@
                     </ListBox.ItemsPanel>
                 </ListBox>
 
-                <ListBox x:Name="GroupedListItems" Classes="presentation-rows Void file-scroll-host" IsVisible="False"
+                <ListBox x:Name="GroupedListItems" Classes="presentation-rows file-scroll-host" IsVisible="False"
                          Background="{DynamicResource ColorBgContent}"
                          SelectionMode="Single" ItemContainerTheme="{StaticResource PresentationRowItemTheme}"
                          SelectionChanged="OnPresentationRowSelectionChanged"
@@ -389,7 +389,7 @@
                     </ListBox.ItemsPanel>
                 </ListBox>
 
-                <ListBox x:Name="GridViewItems" Classes="presentation-rows Void file-scroll-host" IsVisible="False"
+                <ListBox x:Name="GridViewItems" Classes="presentation-rows file-scroll-host" IsVisible="False"
                          Background="{DynamicResource ColorBgContent}"
                          ItemTemplate="{StaticResource GridRowTemplate}" SelectionMode="Single"
                          ItemContainerTheme="{StaticResource PresentationRowItemTheme}"
@@ -398,9 +398,6 @@
                         <ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1"/></ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
                 </ListBox>
-
-                <ListBox x:Name="GroupedGridItems" IsVisible="False"
-                         Background="{DynamicResource ColorBgContent}"/>
 
                 <Border IsVisible="{Binding IsLoading}"
                         Background="{DynamicResource GlassContentBg}"

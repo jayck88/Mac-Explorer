@@ -1,11 +1,11 @@
 using System;
 using System.Globalization;
-using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using MacExplorer.Models;
 using MacExplorer.Services.Impl;
+using MacExplorer.Views;
 
 namespace MacExplorer.Converters;
 
@@ -22,11 +22,14 @@ public class FileEntryToIconConverter : IValueConverter
 
         var size = ParseIconSize(parameter, culture);
 
-        // Return thumbnail if available (e.g. face crop for AI face clusters)
+        // Return thumbnail if available (e.g. face crop for AI face clusters).
+        // Bindings re-evaluate on any entry property change, so never touch the disk
+        // here; misses fall through to the vector icon and the async image loader in
+        // FileListView populates the cache for the next evaluation.
         if (!string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
         {
-            var bitmap = LoadBitmapFromUrl(entry.ThumbnailUrl);
-            if (bitmap != null) return bitmap;
+            var cached = FileListView.TryGetCachedEntryImage(entry.ThumbnailUrl);
+            if (cached != null) return cached;
         }
 
         if (!entry.IsDirectory)
@@ -39,31 +42,6 @@ public class FileEntryToIconConverter : IValueConverter
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
-
-    private static Bitmap? LoadBitmapFromUrl(string url)
-    {
-        try
-        {
-            if (url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-            {
-                var comma = url.IndexOf(',');
-                if (comma < 0) return null;
-                using var dataStream = new MemoryStream(System.Convert.FromBase64String(url[(comma + 1)..]));
-                return new Bitmap(dataStream);
-            }
-
-            if (File.Exists(url))
-            {
-                using var fileStream = File.OpenRead(url);
-                return new Bitmap(fileStream);
-            }
-        }
-        catch
-        {
-            // Fall through to icon
-        }
-        return null;
-    }
 
     private static int ParseIconSize(object? parameter, CultureInfo culture)
     {

@@ -6,10 +6,10 @@ namespace MacExplorer.Services;
 public class CompositeFileService : IFileService
 {
     private readonly IFileService _localService;
-    private readonly SftpFileService _remoteService;
+    private readonly IRemoteFileService _remoteService;
     private readonly IBackgroundTaskManager? _taskManager;
 
-    public CompositeFileService(IFileService localService, SftpFileService remoteService, IBackgroundTaskManager? taskManager = null)
+    public CompositeFileService(IFileService localService, IRemoteFileService remoteService, IBackgroundTaskManager? taskManager = null)
     {
         _localService = localService;
         _remoteService = remoteService;

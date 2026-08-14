@@ -7,7 +7,7 @@ using Renci.SshNet.Sftp;
 
 namespace MacExplorer.Services;
 
-public class SftpFileService : IFileService, IDisposable
+public class SftpFileService : IRemoteFileService, IDisposable
 {
     private readonly IRemoteConnectionService _connectionService;
     private readonly ILogger<SftpFileService>? _logger;
@@ -50,21 +50,10 @@ public class SftpFileService : IFileService, IDisposable
 
     public async Task<IReadOnlyList<FileSystemEntry>> GetDirectoryContentsAsync(string path, CancellationToken cancellationToken = default)
     {
-        var client = GetClient();
-        var serverId = GetServerId();
-        var remotePath = ToRemotePath(path);
-        return await Task.Run(() =>
-        {
-            var entries = new List<FileSystemEntry>();
-            var items = client.ListDirectory(remotePath);
-            foreach (var item in items)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (item.Name == "." || item.Name == "..") continue;
-                entries.Add(CreateEntry(item, remotePath, serverId));
-            }
-            return (IReadOnlyList<FileSystemEntry>)entries;
-        }, cancellationToken);
+        var entries = new List<FileSystemEntry>();
+        await foreach (var batch in EnumerateDirectoryBatchesAsync(path, 256, cancellationToken))
+            entries.AddRange(batch);
+        return entries;
     }
 
     public async IAsyncEnumerable<IReadOnlyList<FileSystemEntry>> EnumerateDirectoryBatchesAsync(
@@ -76,25 +65,20 @@ public class SftpFileService : IFileService, IDisposable
         var serverId = GetServerId();
         var remotePath = ToRemotePath(path);
 
-        List<FileSystemEntry>? batch = null;
-        await Task.Run(() =>
+        var batch = new List<FileSystemEntry>(batchSize);
+        await foreach (var item in client.ListDirectoryAsync(remotePath, cancellationToken)
+                           .WithCancellation(cancellationToken))
         {
-            batch = new List<FileSystemEntry>(batchSize);
-            var items = client.ListDirectory(remotePath);
-            foreach (var item in items)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (item.Name == "." || item.Name == "..") continue;
-                batch!.Add(CreateEntry(item, remotePath, serverId));
-                if (batch.Count >= batchSize)
-                {
-                    // yield not supported in Task.Run, accumulate
-                }
-            }
-        }, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item.Name == "." || item.Name == "..") continue;
+            batch.Add(CreateEntry(item, remotePath, serverId));
+            if (batch.Count < batchSize) continue;
+            yield return batch.ToArray();
+            batch.Clear();
+        }
 
-        if (batch != null && batch.Count > 0)
-            yield return batch;
+        if (batch.Count > 0)
+            yield return batch.ToArray();
     }
 
     public async Task<FileSystemEntry?> GetEntryAsync(string path)

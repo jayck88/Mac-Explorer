@@ -6,6 +6,7 @@ using MacExplorer.Services;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 
 namespace MacExplorer.Platforms.MacCatalyst.Services;
 
@@ -122,6 +123,48 @@ public class MacFileService : IFileService
         }
 
         if (!Directory.Exists(path)) yield break;
+
+        // Directory enumeration and attribute reads are blocking IO; run them on a
+        // background producer so the caller's thread only materializes batches.
+        var channel = Channel.CreateBounded<IReadOnlyList<FileSystemEntry>>(
+            new BoundedChannelOptions(Math.Max(2, Environment.ProcessorCount)) { SingleReader = true });
+        using var producerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var producerToken = producerCancellation.Token;
+        var producer = Task.Run(async () =>
+        {
+            try
+            {
+                await EnumerateBatchesToChannelAsync(path, batchSize, channel.Writer, producerToken);
+                channel.Writer.TryComplete();
+            }
+            catch (OperationCanceledException)
+            {
+                channel.Writer.TryComplete();
+            }
+            catch (Exception ex)
+            {
+                channel.Writer.TryComplete(ex);
+            }
+        });
+
+        try
+        {
+            await foreach (var batch in channel.Reader.ReadAllAsync(cancellationToken))
+                yield return batch;
+        }
+        finally
+        {
+            producerCancellation.Cancel();
+            try { await producer; } catch { /* surfaced via the channel or cancelled */ }
+        }
+    }
+
+    private async Task EnumerateBatchesToChannelAsync(
+        string path,
+        int batchSize,
+        ChannelWriter<IReadOnlyList<FileSystemEntry>> writer,
+        CancellationToken cancellationToken)
+    {
         var batch = new List<FileSystemEntry>(batchSize);
         var knownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entryPath in Directory.EnumerateFileSystemEntries(path))
@@ -147,14 +190,13 @@ public class MacFileService : IFileService
                 knownNames.Add(entry.Name);
             }
             if (batch.Count < batchSize) continue;
-            yield return batch.ToArray();
+            await writer.WriteAsync(batch.ToArray(), cancellationToken);
             batch.Clear();
-            await Task.Yield();
         }
 
         if (batch.Count > 0)
         {
-            yield return batch.ToArray();
+            await writer.WriteAsync(batch.ToArray(), cancellationToken);
             batch.Clear();
         }
 
@@ -180,14 +222,14 @@ public class MacFileService : IFileService
                     if (systemEntry == null) continue;
                     batch.Add(systemEntry);
                     if (batch.Count < batchSize) continue;
-                    yield return batch.ToArray();
+                    await writer.WriteAsync(batch.ToArray(), cancellationToken);
                     batch.Clear();
-                    await Task.Yield();
                 }
             }
         }
 
-        if (batch.Count > 0) yield return batch.ToArray();
+        if (batch.Count > 0)
+            await writer.WriteAsync(batch.ToArray(), cancellationToken);
     }
 
     private List<FileSystemEntry> EnumerateTrashViaFinder(CancellationToken ct)

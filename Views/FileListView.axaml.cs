@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -48,20 +47,38 @@ public sealed class FileGridPresentationRow
 
 public partial class FileListView : UserControl
 {
-    private static readonly ConcurrentDictionary<string, Bitmap> MenuIconCache = new(StringComparer.Ordinal);
+    private static readonly ByteLruCache MenuIconCache = new(8L * 1024 * 1024);
     private static readonly BitmapLruCache EntryImageCache = new(96L * 1024 * 1024);
+
+    // Icon bindings re-evaluate on any entry property change, so converters must never
+    // touch the disk; they only serve cache hits populated by the async loader below.
+    internal static Bitmap? TryGetCachedEntryImage(string source)
+        => EntryImageCache.TryGet(source, out var bitmap) ? bitmap : null;
     private static readonly SemaphoreSlim EntryImageLoadGate = new(4);
     private readonly ObservableCollection<FileListPresentationRow> _groupedListRows = [];
     private readonly ObservableCollection<FileGridPresentationRow> _gridRows = [];
     private readonly Dictionary<string, FileListPresentationRow> _groupedRowByPath = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FileGridPresentationRow> _gridRowByPath = new(StringComparer.Ordinal);
     private int _gridColumnCount;
+    private FileListColumnWidths? _lastAppliedColumnWidths;
+    private bool _anyCutApplied;
 
     private sealed class EntryImageLoadState
     {
         public required string Source { get; set; }
         public required CancellationTokenSource Cancellation { get; init; }
     }
+
+    // Carries the pending thumbnail subscription for an icon so recycled virtualization
+    // containers can detach it deterministically instead of accumulating lambdas.
+    private sealed class EntryThumbnailAwaitState
+    {
+        public required FileSystemEntry Entry { get; init; }
+        public required PropertyChangedEventHandler Handler { get; init; }
+    }
+
+    private static readonly AttachedProperty<EntryThumbnailAwaitState?> ThumbnailAwaitProperty =
+        AvaloniaProperty.RegisterAttached<FileListView, Image, EntryThumbnailAwaitState?>("ThumbnailAwait");
 
     private sealed class BitmapLruCache
     {
@@ -116,9 +133,71 @@ public partial class FileListView : UserControl
             }
         }
     }
+
+    internal sealed class ByteLruCache
+    {
+        private readonly long _maxBytes;
+        private readonly object _sync = new();
+        private readonly Dictionary<string, LinkedListNode<(string Key, byte[] Bytes)>> _entries = new(StringComparer.Ordinal);
+        private readonly LinkedList<(string Key, byte[] Bytes)> _lru = new();
+        private long _bytes;
+
+        public ByteLruCache(long maxBytes)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
+            _maxBytes = maxBytes;
+        }
+
+        public byte[] GetOrAdd(string key, Func<byte[]> valueFactory)
+        {
+            lock (_sync)
+            {
+                if (_entries.TryGetValue(key, out var cached))
+                {
+                    _lru.Remove(cached);
+                    _lru.AddFirst(cached);
+                    return cached.Value.Bytes;
+                }
+            }
+
+            var created = valueFactory();
+            lock (_sync)
+            {
+                if (_entries.TryGetValue(key, out var cached))
+                {
+                    _lru.Remove(cached);
+                    _lru.AddFirst(cached);
+                    return cached.Value.Bytes;
+                }
+
+                var node = _lru.AddFirst((key, created));
+                _entries[key] = node;
+                _bytes += created.LongLength;
+                while (_bytes > _maxBytes && _lru.Last is { } last)
+                {
+                    _lru.RemoveLast();
+                    _entries.Remove(last.Value.Key);
+                    _bytes -= last.Value.Bytes.LongLength;
+                }
+                return created;
+            }
+        }
+
+        internal int Count
+        {
+            get { lock (_sync) return _entries.Count; }
+        }
+
+        internal long ByteCount
+        {
+            get { lock (_sync) return _bytes; }
+        }
+    }
+
     private FileListViewModel? _subscribedViewModel;
     private ObservableCollection<FileSystemEntry>? _subscribedEntries;
     private ContextMenu? _openMenu;
+    private readonly List<Bitmap> _menuOwnedBitmaps = [];
     private int _menuRequestVersion;
     private bool _syncingSelection;
     private bool _clearingPresentationSelection;
@@ -311,7 +390,7 @@ public partial class FileListView : UserControl
                 {
                     _applyingViewModelEntries = false;
                 }
-            });
+            }, DispatcherPriority.Loaded);
         }
 
         if (e.PropertyName == nameof(FileListViewModel.IsLoading))
@@ -368,8 +447,15 @@ public partial class FileListView : UserControl
     private void UpdateCutStates()
     {
         if (ViewModel == null) return;
+        // Re-runs on every batched load; skip the full walk while nothing is cut.
+        if (ViewModel.CutPaths.Count == 0 && !_anyCutApplied) return;
+        _anyCutApplied = false;
         foreach (var entry in ViewModel.Entries)
-            entry.IsCut = ViewModel.CutPaths.Contains(entry.FullPath);
+        {
+            var isCut = ViewModel.CutPaths.Contains(entry.FullPath);
+            entry.IsCut = isCut;
+            if (isCut) _anyCutApplied = true;
+        }
     }
 
     private void OnEntryImageLoaded(object? sender, RoutedEventArgs e)
@@ -382,6 +468,7 @@ public partial class FileListView : UserControl
     {
         if (sender is not Image image) return;
         CancelEntryImageLoad(image);
+        DetachThumbnailAwait(image);
         image.Tag = null;
         Dispatcher.UIThread.Post(() => _ = LoadEntryImageAsync(image), DispatcherPriority.Loaded);
     }
@@ -391,6 +478,13 @@ public partial class FileListView : UserControl
         if (image.DataContext is not FileSystemEntry entry) return;
         var entryPath = entry.FullPath;
         var source = !string.IsNullOrWhiteSpace(entry.IconUrl) ? entry.IconUrl : null;
+
+        if (entry.ThumbnailUrl is { Length: > 0 } thumbnailUrl
+            && Path.IsPathFullyQualified(thumbnailUrl)
+            && !File.Exists(thumbnailUrl))
+        {
+            entry.ThumbnailUrl = null;
+        }
 
         if (image.Tag is EntryImageLoadState activeState
             && !activeState.Cancellation.IsCancellationRequested
@@ -402,6 +496,8 @@ public partial class FileListView : UserControl
         // If thumbnail not yet available for a virtual entry, listen for it
         if (string.IsNullOrWhiteSpace(source) && entry.IsVirtual)
         {
+            // Detach a previous await first so recycled containers never accumulate handlers.
+            DetachThumbnailAwait(image);
             PropertyChangedEventHandler? handler = null;
             handler = (_, args) =>
             {
@@ -409,13 +505,12 @@ public partial class FileListView : UserControl
                     && !string.IsNullOrWhiteSpace(entry.ThumbnailUrl)
                     && ReferenceEquals(image.DataContext, entry))
                 {
-                    entry.PropertyChanged -= handler;
+                    DetachThumbnailAwait(image);
                     Dispatcher.UIThread.Post(() => _ = LoadEntryImageAsync(image), DispatcherPriority.Loaded);
                 }
             };
             entry.PropertyChanged += handler;
-            // Also clean up if the image's DataContext changes
-            image.DataContextChanged += (_, _) => entry.PropertyChanged -= handler;
+            image.SetValue(ThumbnailAwaitProperty, new EntryThumbnailAwaitState { Entry = entry, Handler = handler });
             return;
         }
 
@@ -429,16 +524,13 @@ public partial class FileListView : UserControl
             if (entry.IconKey == "file-image" && string.IsNullOrWhiteSpace(entry.ThumbnailUrl))
             {
                 var thumbnailService = App.Services.GetService<IThumbnailService>();
-                var bytes = thumbnailService == null
+                var thumbnail = thumbnailService == null
                     ? null
-                    : await System.Threading.Tasks.Task.Run(
-                        () => thumbnailService.GetThumbnailAsync(entry.FullPath, 256, cts.Token),
-                        cts.Token);
-                if (bytes is { Length: > 0 })
+                    : await thumbnailService.GetThumbnailResultAsync(entry.FullPath, 256, cts.Token);
+                if (thumbnail is { Bytes.Length: > 0 })
                 {
-                    var cachePath = await StoreEntryThumbnailAsync(entry.FullPath, entry.LastModified, bytes, cts.Token);
                     if (ReferenceEquals(image.DataContext, entry) && entry.FullPath == entryPath)
-                        entry.ThumbnailUrl = cachePath;
+                        entry.ThumbnailUrl = thumbnail.CachePath;
                 }
             }
 
@@ -471,32 +563,17 @@ public partial class FileListView : UserControl
         }
     }
 
-    private static Task<string> StoreEntryThumbnailAsync(
-        string entryPath,
-        DateTime lastModified,
-        byte[] bytes,
-        CancellationToken cancellationToken)
-    {
-        return System.Threading.Tasks.Task.Run(async () =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var cacheDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MacExplorer", "thumbnail-cache");
-            Directory.CreateDirectory(cacheDirectory);
-            var cacheName = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes($"{entryPath}|{lastModified.Ticks}|256")));
-            var cachePath = Path.Combine(cacheDirectory, cacheName + ".png");
-            if (!File.Exists(cachePath))
-                await File.WriteAllBytesAsync(cachePath, bytes, cancellationToken);
-            return cachePath;
-        }, cancellationToken);
-    }
-
     private static void CancelEntryImageLoad(Image image)
     {
         if (image.Tag is EntryImageLoadState state)
             state.Cancellation.Cancel();
+    }
+
+    private static void DetachThumbnailAwait(Image image)
+    {
+        if (image.GetValue(ThumbnailAwaitProperty) is not { } state) return;
+        image.SetValue(ThumbnailAwaitProperty, null);
+        state.Entry.PropertyChanged -= state.Handler;
     }
 
     private static async System.Threading.Tasks.Task<Bitmap?> GetEntryBitmapAsync(
@@ -603,20 +680,30 @@ public partial class FileListView : UserControl
     private void ApplyListColumnWidths()
     {
         var preferred = _columnLayoutService?.PreferredWidths ?? FileListColumnLayoutService.Defaults;
-        _effectiveColumnWidths = FileListColumnLayoutService.CalculateEffective(
+        var effective = FileListColumnLayoutService.CalculateEffective(
             preferred,
             GetAvailableDataWidth());
 
+        // Re-runs on every batched load and resize; when the widths are unchanged skip
+        // the header assignments and the walk over the whole visual tree.
+        if (_lastAppliedColumnWidths == effective)
+            return;
+        _lastAppliedColumnWidths = effective;
+        _effectiveColumnWidths = effective;
+
         for (var column = 1; column <= 4 && column < ListHeaderGrid.ColumnDefinitions.Count; column++)
             ListHeaderGrid.ColumnDefinitions[column].Width = new GridLength(
-                _effectiveColumnWidths[(FileListColumn)(column - 1)]);
+                effective[(FileListColumn)(column - 1)]);
 
         foreach (var grid in this.GetVisualDescendants().OfType<Grid>()
                      .Where(grid => grid.Classes.Contains("file-list-row-grid")))
             ApplyColumnWidthsToRow(grid);
     }
 
-    private void OnFileListRowLoaded(object? sender, RoutedEventArgs e)
+    // Attached (not Loaded) so recycled and fresh rows get the effective widths
+    // before their first measure; otherwise rows flash at the template's hardcoded
+    // widths for a frame and snap into place once the Loaded pass corrects them.
+    private void OnFileListRowAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
         if (sender is Grid grid)
             ApplyColumnWidthsToRow(grid);
@@ -677,8 +764,7 @@ public partial class FileListView : UserControl
     {
         var host = FileItemsList.IsVisible ? (Control)FileItemsList
             : GridViewItems.IsVisible ? GridViewItems
-            : GroupedListItems.IsVisible ? GroupedListItems
-            : GroupedGridItems;
+            : GroupedListItems;
         return host.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
     }
 
@@ -961,8 +1047,7 @@ public partial class FileListView : UserControl
     {
         var host = FileItemsList.IsVisible ? (Control)FileItemsList
             : GridViewItems.IsVisible ? GridViewItems
-            : GroupedListItems.IsVisible ? GroupedListItems
-            : GroupedGridItems;
+            : GroupedListItems;
 
         return host.GetVisualDescendants()
             .OfType<Control>()
@@ -1322,25 +1407,33 @@ public partial class FileListView : UserControl
         double size,
         int requestVersion)
     {
+        Bitmap? bitmap = null;
         try
         {
-            var bitmap = await System.Threading.Tasks.Task.Run(() =>
+            bitmap = await System.Threading.Tasks.Task.Run(() =>
             {
                 var comma = iconBase64.IndexOf(',');
                 var payload = iconBase64.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && comma >= 0
                     ? iconBase64[(comma + 1)..]
                     : iconBase64;
-                return MenuIconCache.GetOrAdd(payload, static base64 =>
-                {
-                    using var stream = new MemoryStream(Convert.FromBase64String(base64));
-                    return new Bitmap(stream);
-                });
+                var bytes = MenuIconCache.GetOrAdd(payload, () => Convert.FromBase64String(payload));
+                using var stream = new MemoryStream(bytes, writable: false);
+                return new Bitmap(stream);
             });
 
-            if (requestVersion != _menuRequestVersion) return;
+            if (requestVersion != _menuRequestVersion)
+            {
+                bitmap.Dispose();
+                bitmap = null;
+                return;
+            }
+
+            var ownedBitmap = bitmap;
+            _menuOwnedBitmaps.Add(ownedBitmap);
+            bitmap = null;
             item.Icon = new Image
             {
-                Source = bitmap,
+                Source = ownedBitmap,
                 Width = size,
                 Height = size,
                 Stretch = Stretch.Uniform
@@ -1348,6 +1441,7 @@ public partial class FileListView : UserControl
         }
         catch
         {
+            bitmap?.Dispose();
             // Keep the SVG fallback when the cached image cannot be decoded.
         }
     }
@@ -1426,7 +1520,9 @@ public partial class FileListView : UserControl
                 return;
 
             viewModel.ContextMenuActions = new ObservableCollection<ContextMenuAction>(completeActions);
-            FillMenu(menu, viewModel.ContextMenuActions, requestVersion);
+            var completeRequestVersion = ++_menuRequestVersion;
+            DisposeOwnedMenuBitmaps();
+            FillMenu(menu, viewModel.ContextMenuActions, completeRequestVersion);
         }
         catch
         {
@@ -1463,17 +1559,29 @@ public partial class FileListView : UserControl
     {
         var menu = _openMenu;
         _openMenu = null;
-        if (menu == null) return;
-        menu.Closing -= OnContextMenuClosing;
-        menu.Close();
+        if (menu != null)
+        {
+            menu.Closing -= OnContextMenuClosing;
+            menu.Close();
+        }
+        DisposeOwnedMenuBitmaps();
     }
 
     private void OnContextMenuClosing(object? sender, CancelEventArgs e)
     {
         if (sender is not ContextMenu menu || !ReferenceEquals(menu, _openMenu)) return;
+        _menuRequestVersion++;
         _openMenu = null;
         menu.Closing -= OnContextMenuClosing;
+        DisposeOwnedMenuBitmaps();
         ViewModel?.CloseContextMenu();
+    }
+
+    private void DisposeOwnedMenuBitmaps()
+    {
+        foreach (var bitmap in _menuOwnedBitmaps)
+            bitmap.Dispose();
+        _menuOwnedBitmaps.Clear();
     }
 
     private void OnDismissClick(object? sender, PointerPressedEventArgs e)
@@ -2077,13 +2185,9 @@ public partial class FileListView : UserControl
             }
 
             var fileService = App.Services.GetRequiredService<IFileService>();
-            var sourceEntries = new List<FileSystemEntry>();
-            foreach (var path in paths.Distinct(StringComparer.Ordinal))
-            {
-                var entry = await fileService.GetEntryAsync(path);
-                if (entry != null)
-                    sourceEntries.Add(entry);
-            }
+            var lookedUp = await Task.WhenAll(
+                paths.Distinct(StringComparer.Ordinal).Select(fileService.GetEntryAsync));
+            var sourceEntries = lookedUp.OfType<FileSystemEntry>().ToList();
             if (sourceEntries.Count == 0) return;
 
             var targetEntry = target ?? await fileService.GetEntryAsync(targetDirectory)
@@ -2258,6 +2362,17 @@ public partial class FileListView : UserControl
         try
         {
             var selectedPaths = ViewModel.SelectedEntries.Select(entry => entry.FullPath).ToHashSet(StringComparer.Ordinal);
+            if (selectedPaths.Count == 0)
+            {
+                // Batched loads re-run this per batch; with nothing selected just drop
+                // stale control selections instead of scanning every item.
+                foreach (var listBox in GetActiveSelectionLists())
+                {
+                    if (listBox.SelectedItems is { Count: > 0 })
+                        listBox.SelectedItems.Clear();
+                }
+                return;
+            }
             foreach (var listBox in GetActiveSelectionLists())
             {
                 if (listBox.SelectedItems == null) continue;
@@ -2317,11 +2432,6 @@ public partial class FileListView : UserControl
             foreach (var list in GetSelectionListsWithin(GridViewItems))
                 yield return list;
         }
-        if (GroupedGridItems.IsVisible)
-        {
-            foreach (var list in GetSelectionListsWithin(GroupedGridItems))
-                yield return list;
-        }
     }
 
     private static IEnumerable<ListBox> GetSelectionListsWithin(ListBox root)
@@ -2339,7 +2449,6 @@ public partial class FileListView : UserControl
         FileItemsList.IsVisible = !isGrid && !isGrouped;
         GroupedListItems.IsVisible = !isGrid && isGrouped;
         GridViewItems.IsVisible = isGrid;
-        GroupedGridItems.IsVisible = false;
         ListHeaderPanel.IsVisible = !isGrid;
         UpdateSortHeaders();
     }
@@ -2350,7 +2459,10 @@ public partial class FileListView : UserControl
 
         _groupedListRows.Clear();
         _groupedRowByPath.Clear();
-        if (ViewModel.GroupField != GroupField.None)
+        // Presentation rows are only materialized while their host is on screen;
+        // switching view/group modes re-runs this after UpdateViewMode flipped
+        // visibility, so off-screen row sets stay empty.
+        if (GroupedListItems.IsVisible && ViewModel.GroupField != GroupField.None)
         {
             foreach (var group in ViewModel.Groups)
             {
@@ -2368,7 +2480,8 @@ public partial class FileListView : UserControl
             }
         }
 
-        RebuildGridRows(CalculateGridColumnCount());
+        if (GridViewItems.IsVisible)
+            RebuildGridRows(CalculateGridColumnCount());
     }
 
     private int CalculateGridColumnCount()
@@ -2376,6 +2489,7 @@ public partial class FileListView : UserControl
 
     private void RebuildGridRowsIfColumnCountChanged()
     {
+        if (!GridViewItems.IsVisible) return;
         var columns = CalculateGridColumnCount();
         if (columns == _gridColumnCount) return;
         RebuildGridRows(columns);
@@ -2391,7 +2505,7 @@ public partial class FileListView : UserControl
         IEnumerable<(string? Header, IReadOnlyList<FileSystemEntry> Entries)> groups =
             ViewModel.GroupField == GroupField.None
                 ? [(null, ViewModel.Entries)]
-                : ViewModel.Groups.Select(group => ((string?)group.Name, group.Entries));
+                : ViewModel.Groups.Select(group => ((string?)group.Name, (IReadOnlyList<FileSystemEntry>)group.Entries));
         foreach (var (header, entries) in groups)
         {
             if (header != null)
@@ -2402,12 +2516,16 @@ public partial class FileListView : UserControl
                 });
             for (var i = 0; i < entries.Count; i += columns)
             {
+                var take = Math.Min(columns, entries.Count - i);
+                var slice = new FileSystemEntry[take];
+                for (var j = 0; j < take; j++)
+                    slice[j] = entries[i + j];
                 var row = new FileGridPresentationRow
                 {
-                    Entries = entries.Skip(i).Take(columns).ToArray()
+                    Entries = slice
                 };
                 _gridRows.Add(row);
-                foreach (var entry in row.Entries)
+                foreach (var entry in slice)
                     _gridRowByPath[entry.FullPath] = row;
             }
         }

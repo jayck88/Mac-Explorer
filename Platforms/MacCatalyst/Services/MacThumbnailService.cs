@@ -22,18 +22,36 @@ public class MacThumbnailService : IThumbnailService
 
     private const int MaxMemoryEntries = 300;
     private const long MaxMemoryBytes = 64L * 1024 * 1024;
+    private const long DefaultMaxDiskBytes = 256L * 1024 * 1024;
+    private const double DefaultDiskTargetRatio = 0.8;
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
     private readonly ConcurrentQueue<string> _cacheOrder = new();
     private readonly SemaphoreSlim _generationGate = new(1);
     private readonly string _diskCacheDirectory;
+    private readonly long _maxDiskBytes;
+    private readonly long _targetDiskBytes;
     private long _memoryBytes;
 
-    public MacThumbnailService()
-    {
-        _diskCacheDirectory = Path.Combine(
+    public MacThumbnailService() : this(
+        Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "MacExplorer",
-            "thumbnail-cache");
+            "thumbnail-cache"),
+        DefaultMaxDiskBytes,
+        DefaultDiskTargetRatio)
+    {
+    }
+
+    internal MacThumbnailService(string diskCacheDirectory, long maxDiskBytes, double targetRatio)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(diskCacheDirectory);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxDiskBytes);
+        if (targetRatio is <= 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(targetRatio));
+
+        _diskCacheDirectory = diskCacheDirectory;
+        _maxDiskBytes = maxDiskBytes;
+        _targetDiskBytes = Math.Max(1, (long)(maxDiskBytes * targetRatio));
         Directory.CreateDirectory(_diskCacheDirectory);
     }
 
@@ -44,44 +62,83 @@ public class MacThumbnailService : IThumbnailService
         string filePath,
         int maxPixelSize,
         CancellationToken ct = default)
+        => (await GetThumbnailResultAsync(filePath, maxPixelSize, ct))?.Bytes;
+
+    public async Task<ThumbnailResult?> GetThumbnailResultAsync(
+        string filePath,
+        int maxPixelSize,
+        CancellationToken ct = default)
     {
         var extension = Path.GetExtension(filePath);
         if (!File.Exists(filePath) || (!IsImageFile(extension) && !QuickLookDocumentExtensions.Contains(extension)))
             return null;
 
         var cacheKey = $"{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
-        if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes))
-            return memoryBytes;
-
         var cachePath = GetCachePath(cacheKey);
-        if (File.Exists(cachePath))
+        if (_memoryCache.TryGetValue(cacheKey, out var memoryBytes))
         {
+            if (File.Exists(cachePath))
+            {
+                TouchCacheFile(cachePath);
+                return new ThumbnailResult(memoryBytes, cachePath);
+            }
+
+            await _generationGate.WaitAsync(ct);
             try
             {
-                var diskBytes = await File.ReadAllBytesAsync(cachePath, ct);
-                AddToMemory(cacheKey, diskBytes);
-                return diskBytes;
+                if (!File.Exists(cachePath))
+                {
+                    await WriteCacheFileAtomicallyAsync(cachePath, memoryBytes, ct);
+                    TrimDiskCache(cachePath);
+                }
+                else
+                {
+                    TouchCacheFile(cachePath);
+                }
+                return new ThumbnailResult(memoryBytes, cachePath);
             }
-            catch
+            finally
             {
-                TryDelete(cachePath);
+                _generationGate.Release();
             }
+        }
+
+        var diskBytes = await TryReadCacheFileAsync(cachePath, ct);
+        if (diskBytes != null)
+        {
+            AddToMemory(cacheKey, diskBytes);
+            return new ThumbnailResult(diskBytes, cachePath);
         }
 
         await _generationGate.WaitAsync(ct);
         try
         {
-            if (File.Exists(cachePath))
+            if (_memoryCache.TryGetValue(cacheKey, out memoryBytes))
             {
-                var cached = await File.ReadAllBytesAsync(cachePath, ct);
+                if (!File.Exists(cachePath))
+                {
+                    await WriteCacheFileAtomicallyAsync(cachePath, memoryBytes, ct);
+                    TrimDiskCache(cachePath);
+                }
+                else
+                {
+                    TouchCacheFile(cachePath);
+                }
+                return new ThumbnailResult(memoryBytes, cachePath);
+            }
+
+            var cached = await TryReadCacheFileAsync(cachePath, ct);
+            if (cached != null)
+            {
                 AddToMemory(cacheKey, cached);
-                return cached;
+                return new ThumbnailResult(cached, cachePath);
             }
 
             var generated = await GenerateThumbnailAsync(filePath, cachePath, maxPixelSize, ct);
             if (generated == null) return null;
             AddToMemory(cacheKey, generated);
-            return generated;
+            TrimDiskCache(cachePath);
+            return new ThumbnailResult(generated, cachePath);
         }
         finally
         {
@@ -111,6 +168,7 @@ public class MacThumbnailService : IThumbnailService
             try
             {
                 var diskBytes = await File.ReadAllBytesAsync(cachePath, ct);
+                TouchCacheFile(cachePath);
                 AddToMemory(cacheKey, diskBytes);
                 return diskBytes;
             }
@@ -126,6 +184,7 @@ public class MacThumbnailService : IThumbnailService
             if (File.Exists(cachePath))
             {
                 var cached = await File.ReadAllBytesAsync(cachePath, ct);
+                TouchCacheFile(cachePath);
                 AddToMemory(cacheKey, cached);
                 return cached;
             }
@@ -141,7 +200,8 @@ public class MacThumbnailService : IThumbnailService
             var offsetX = Math.Clamp((int)Math.Round(centerX - cropWidth / 2f), 0, Math.Max(0, width - cropWidth));
             var offsetY = Math.Clamp((int)Math.Round(centerY - cropHeight / 2f), 0, Math.Max(0, height - cropHeight));
 
-            var croppedPath = Path.Combine(_diskCacheDirectory, $".face-crop-{Guid.NewGuid():N}.png");
+            var croppedPath = CreateTemporaryPath("face-crop");
+            var generatedPath = CreateTemporaryPath("face-result");
             try
             {
                 var cropArguments = new[]
@@ -158,21 +218,24 @@ public class MacThumbnailService : IThumbnailService
                 {
                     "-Z", Math.Max(1, maxPixelSize).ToString(),
                     "--setProperty", "format", "png",
-                    croppedPath, "--out", cachePath
+                    croppedPath, "--out", generatedPath
                 };
-                if (!await RunSipsAsync(resizeArguments, ct) || !File.Exists(cachePath))
+                if (!await RunSipsAsync(resizeArguments, ct) || !File.Exists(generatedPath))
                 {
-                    TryDelete(cachePath);
                     return null;
                 }
 
+                PromoteTemporaryFile(generatedPath, cachePath);
                 var bytes = await File.ReadAllBytesAsync(cachePath, ct);
+                TouchCacheFile(cachePath);
                 AddToMemory(cacheKey, bytes);
+                TrimDiskCache(cachePath);
                 return bytes;
             }
             finally
             {
                 TryDelete(croppedPath);
+                TryDelete(generatedPath);
             }
         }
         finally
@@ -203,19 +266,34 @@ public class MacThumbnailService : IThumbnailService
         if (!IsImageFile(Path.GetExtension(sourcePath)))
             return await GenerateQuickLookThumbnailAsync(sourcePath, cachePath, maxPixelSize, ct);
 
-        var arguments = new[]
+        var generatedPath = CreateTemporaryPath("thumbnail");
+        try
         {
-            "-Z", Math.Max(32, maxPixelSize).ToString(),
-            "--setProperty", "format", "png",
-            sourcePath, "--out", cachePath
-        };
-        if (await RunSipsAsync(arguments, ct) && File.Exists(cachePath))
-            return await File.ReadAllBytesAsync(cachePath, ct);
+            var arguments = new[]
+            {
+                "-Z", Math.Max(32, maxPixelSize).ToString(),
+                "--setProperty", "format", "png",
+                sourcePath, "--out", generatedPath
+            };
+            if (await RunSipsAsync(arguments, ct) && File.Exists(generatedPath))
+            {
+                PromoteTemporaryFile(generatedPath, cachePath);
+                var generated = await File.ReadAllBytesAsync(cachePath, ct);
+                TouchCacheFile(cachePath);
+                return generated;
+            }
+        }
+        finally
+        {
+            TryDelete(generatedPath);
+        }
 
         var info = new FileInfo(sourcePath);
-        return info.Length <= 10 * 1024 * 1024
-            ? await File.ReadAllBytesAsync(sourcePath, ct)
-            : null;
+        if (info.Length > 10 * 1024 * 1024) return null;
+
+        var sourceBytes = await File.ReadAllBytesAsync(sourcePath, ct);
+        await WriteCacheFileAtomicallyAsync(cachePath, sourceBytes, ct);
+        return sourceBytes;
     }
 
     private async Task<byte[]?> GenerateQuickLookThumbnailAsync(
@@ -258,8 +336,19 @@ public class MacThumbnailService : IThumbnailService
             if (process.ExitCode != 0) return null;
             var generatedPath = Directory.EnumerateFiles(outputDirectory, "*.png").FirstOrDefault();
             if (generatedPath == null) return null;
-            File.Move(generatedPath, cachePath, overwrite: true);
-            return await File.ReadAllBytesAsync(cachePath, ct);
+            var temporaryPath = CreateTemporaryPath("quicklook");
+            try
+            {
+                File.Move(generatedPath, temporaryPath, overwrite: true);
+                PromoteTemporaryFile(temporaryPath, cachePath);
+                var generated = await File.ReadAllBytesAsync(cachePath, ct);
+                TouchCacheFile(cachePath);
+                return generated;
+            }
+            finally
+            {
+                TryDelete(temporaryPath);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -368,6 +457,90 @@ public class MacThumbnailService : IThumbnailService
     {
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(cacheKey))).ToLowerInvariant();
         return Path.Combine(_diskCacheDirectory, hash + ".png");
+    }
+
+    private string CreateTemporaryPath(string purpose)
+        => Path.Combine(_diskCacheDirectory, $".tmp-{purpose}-{Guid.NewGuid():N}");
+
+    private async Task<byte[]?> TryReadCacheFileAsync(string cachePath, CancellationToken ct)
+    {
+        if (!File.Exists(cachePath)) return null;
+        try
+        {
+            var bytes = await File.ReadAllBytesAsync(cachePath, ct);
+            TouchCacheFile(cachePath);
+            return bytes;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            TryDelete(cachePath);
+            return null;
+        }
+    }
+
+    private async Task WriteCacheFileAtomicallyAsync(
+        string cachePath,
+        byte[] bytes,
+        CancellationToken ct)
+    {
+        var temporaryPath = CreateTemporaryPath("write");
+        try
+        {
+            await File.WriteAllBytesAsync(temporaryPath, bytes, ct);
+            PromoteTemporaryFile(temporaryPath, cachePath);
+            TouchCacheFile(cachePath);
+        }
+        finally
+        {
+            TryDelete(temporaryPath);
+        }
+    }
+
+    private static void PromoteTemporaryFile(string temporaryPath, string cachePath)
+        => File.Move(temporaryPath, cachePath, overwrite: true);
+
+    private void TrimDiskCache(string protectedPath)
+    {
+        try
+        {
+            var files = Directory.EnumerateFiles(_diskCacheDirectory, "*.png", SearchOption.TopDirectoryOnly)
+                .Where(path => !Path.GetFileName(path).StartsWith(".tmp-", StringComparison.Ordinal))
+                .Select(path => new FileInfo(path))
+                .Where(info => info.Exists)
+                .ToList();
+            var totalBytes = files.Sum(info => info.Length);
+            if (totalBytes <= _maxDiskBytes) return;
+
+            foreach (var file in files.OrderBy(info => info.LastAccessTimeUtc))
+            {
+                if (totalBytes <= _targetDiskBytes) break;
+                if (string.Equals(file.FullName, protectedPath, StringComparison.Ordinal)) continue;
+                var length = file.Length;
+                try
+                {
+                    file.Delete();
+                    totalBytes -= length;
+                }
+                catch
+                {
+                    // Locked and concurrently removed files are skipped; the next write retries trimming.
+                }
+            }
+        }
+        catch
+        {
+            // Cache cleanup is best-effort and must not fail thumbnail delivery.
+        }
+    }
+
+    private static void TouchCacheFile(string cachePath)
+    {
+        try { File.SetLastAccessTimeUtc(cachePath, DateTime.UtcNow); }
+        catch { }
     }
 
     private void AddToMemory(string key, byte[] bytes)

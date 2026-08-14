@@ -36,7 +36,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private readonly IDisplayNameService? _displayNameService;
     private readonly IVolumeMonitorService? _volumeMonitorService;
     private readonly IRemoteConnectionService? _remoteConnectionService;
-    private readonly SftpFileService? _sftpFileService;
+    private readonly IRemoteFileService? _sftpFileService;
     private readonly IRemoteFileEditService? _remoteFileEditService;
     private readonly IOpenWithAppService? _openWithAppService;
     private readonly IFileTagService? _fileTagService;
@@ -400,7 +400,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         IDisplayNameService? displayNameService = null,
         IVolumeMonitorService? volumeMonitorService = null,
         IRemoteConnectionService? remoteConnectionService = null,
-        SftpFileService? sftpFileService = null,
+        IRemoteFileService? sftpFileService = null,
         IRemoteFileEditService? remoteFileEditService = null,
         IOpenWithAppService? openWithAppService = null,
         IFileTagService? fileTagService = null)
@@ -1375,7 +1375,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         var (serverId, remotePath) = VirtualPath.ParseRemotePath(sentinelPath);
 
-        CancelDirectoryWork();
+        if (string.IsNullOrEmpty(PendingSelectFileName))
+            ScrollBehaviorAfterLoad = ScrollMode.ResetToTop;
+
+        var work = BeginDirectoryWork();
+        var selectionState = CaptureEntryLoadSelectionState();
         _navigation.SetWatchedDirectory(null);
         _navigation.IsHomePage = false;
         _navigation.IsCollectionView = false;
@@ -1392,33 +1396,38 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         try
         {
-            var client = _remoteConnectionService.GetClient(serverId);
-            if (client == null)
+            if (!_remoteConnectionService.IsConnected(serverId))
             {
-                StatusText = "服务器未连接";
-                IsLoading = false;
+                if (IsCurrentDirectoryWork(work))
+                    StatusText = "服务器未连接";
                 return;
             }
 
             _sftpFileService.SetCurrentServer(serverId);
-
-            var entries = await _sftpFileService.GetDirectoryContentsAsync(remotePath);
-            ApplyEntries(entries);
+            await StreamDirectoryEntriesAsync(
+                _sftpFileService,
+                remotePath,
+                work,
+                selectionState);
+            if (!IsCurrentDirectoryWork(work)) return;
+            RefreshLocationStatus();
+            _navigation.UpdateHistoryForSentinelPath(sentinelPath);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            StatusText = $"无法访问远程目录: {ex.Message}";
+            if (IsCurrentDirectoryWork(work))
+                StatusText = $"无法访问远程目录: {ex.Message}";
             _logger?.LogError(ex, "Failed to navigate to remote path {Path}", sentinelPath);
         }
         finally
         {
-            IsLoading = false;
+            if (IsCurrentDirectoryWork(work))
+                IsLoading = false;
         }
-
-        _navigation.UpdateHistoryForSentinelPath(sentinelPath);
     }
 
-    private async Task RefreshRemoteDirectoryAsync()
+    private async Task RefreshRemoteDirectoryAsync(bool showLoadingOverlay = false)
     {
         if (_remoteConnectionService == null || _sftpFileService == null
             || string.IsNullOrEmpty(_navigation.CurrentRemoteServerId)
@@ -1429,17 +1438,34 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (!string.Equals(serverId, _navigation.CurrentRemoteServerId, StringComparison.Ordinal))
             return;
 
-        var client = _remoteConnectionService.GetClient(serverId);
-        if (client == null)
+        var work = BeginDirectoryWork();
+        var selectionState = CaptureEntryLoadSelectionState();
+        if (showLoadingOverlay)
+            IsLoading = true;
+        try
         {
-            StatusText = "服务器未连接";
-            return;
-        }
+            if (!_remoteConnectionService.IsConnected(serverId))
+            {
+                if (IsCurrentDirectoryWork(work))
+                    StatusText = "服务器未连接";
+                return;
+            }
 
-        _sftpFileService.SetCurrentServer(serverId);
-        var entries = await _sftpFileService.GetDirectoryContentsAsync(remotePath);
-        ApplyEntries(entries);
-        RefreshLocationStatus();
+            _sftpFileService.SetCurrentServer(serverId);
+            await StreamDirectoryEntriesAsync(
+                _sftpFileService,
+                remotePath,
+                work,
+                selectionState);
+            if (IsCurrentDirectoryWork(work))
+                RefreshLocationStatus();
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (showLoadingOverlay && IsCurrentDirectoryWork(work))
+                IsLoading = false;
+        }
     }
 
     public async Task ConnectToServerAsync(RemoteServerInfo server)
@@ -1502,21 +1528,14 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (IsRemoteView)
         {
             var showRemoteLoadingOverlay = Entries.Count == 0;
-            if (showRemoteLoadingOverlay)
-                IsLoading = true;
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
             try
             {
-                await RefreshRemoteDirectoryAsync();
+                await RefreshRemoteDirectoryAsync(showRemoteLoadingOverlay);
             }
             catch (Exception ex)
             {
                 StatusText = $"刷新失败: {ex.Message}";
-            }
-            finally
-            {
-                if (showRemoteLoadingOverlay)
-                    IsLoading = false;
             }
             return;
         }
@@ -3657,6 +3676,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     private async Task LoadDirectoryContentsAsync(bool forceRefresh = false)
     {
         var work = BeginDirectoryWork();
+        var selectionState = CaptureEntryLoadSelectionState();
         IReadOnlyList<FileSystemEntry> entries;
         try
         {
@@ -3669,7 +3689,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 if (!IsCurrentDirectoryWork(work)) return;
                 if (entries.Count > 0)
                 {
-                    ApplyEntries(entries);
+                    ApplyEntriesCore(entries);
+                    FinalizeEntriesLoad(selectionState, completed: false);
                     StartDirectoryBackgroundWork(entries, work, includeAnalysis: false);
                 }
             }
@@ -3678,15 +3699,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
         try
         {
-            var accumulated = new List<FileSystemEntry>();
-            await foreach (var batch in _fileService.EnumerateDirectoryBatchesAsync(
-                               _navigation.CurrentPath, 256, work.Token))
-            {
-                if (!IsCurrentDirectoryWork(work)) return;
-                accumulated.AddRange(batch);
-                ApplyEntries(accumulated);
-            }
-            entries = accumulated;
+            entries = await StreamDirectoryEntriesAsync(
+                _fileService,
+                _navigation.CurrentPath,
+                work,
+                selectionState);
         }
         catch (OperationCanceledException)
         {
@@ -3694,7 +3711,6 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
         if (!IsCurrentDirectoryWork(work)) return;
 
-        ApplyEntries(entries);
         StartDirectoryBackgroundWork(entries, work, includeAnalysis: true);
         QueueDirectoryIndexUpdate(_navigation.CurrentPath, entries, work);
         RefreshLocationStatus();
@@ -3763,15 +3779,73 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         _ = ResolveIconsInBackgroundAsync(entries, work);
     }
 
+    private async Task<IReadOnlyList<FileSystemEntry>> StreamDirectoryEntriesAsync(
+        IFileService service,
+        string path,
+        DirectoryWork work,
+        EntryLoadSelectionState selectionState)
+    {
+        var accumulated = new List<FileSystemEntry>();
+        var receivedBatch = false;
+        await foreach (var batch in service.EnumerateDirectoryBatchesAsync(path, 256, work.Token))
+        {
+            if (!IsCurrentDirectoryWork(work))
+                throw new OperationCanceledException(work.Token);
+
+            accumulated.AddRange(batch);
+            _sortFilter.SetRawEntries(accumulated);
+            if (!receivedBatch)
+            {
+                ScrollBehaviorAfterLoad = selectionState.ScrollBehavior;
+                ApplyEntriesCore(accumulated);
+                FinalizeEntriesLoad(selectionState, completed: false);
+                receivedBatch = true;
+            }
+            else if (receivedBatch)
+            {
+                _sortFilter.InsertBatch(batch, Entries);
+                FinalizeEntriesLoad(selectionState, completed: false);
+            }
+        }
+
+        if (!IsCurrentDirectoryWork(work))
+            throw new OperationCanceledException(work.Token);
+
+        if (receivedBatch)
+        {
+            FinalizeEntriesLoad(selectionState, completed: true);
+        }
+        else
+        {
+            ScrollBehaviorAfterLoad = selectionState.ScrollBehavior;
+            ApplyEntriesCore(accumulated);
+            FinalizeEntriesLoad(selectionState, completed: true);
+        }
+
+        return accumulated;
+    }
+
     private void ApplyEntries(IReadOnlyList<FileSystemEntry> entries)
     {
-        var selectedPaths = SelectedEntries
-            .Select(e => e.FullPath)
-            .ToHashSet(StringComparer.Ordinal);
-        var anchorPath = _lastClickedPath;
+        var selectionState = CaptureEntryLoadSelectionState();
+        ApplyEntriesCore(entries);
+        FinalizeEntriesLoad(selectionState, completed: true);
+    }
 
+    private void ApplyEntriesCore(IReadOnlyList<FileSystemEntry> entries)
+    {
         _sortFilter.SetRawEntries(entries);
         _sortFilter.ApplySortAndGroup(sortedEntries => Entries = sortedEntries);
+    }
+
+    private EntryLoadSelectionState CaptureEntryLoadSelectionState() => new(
+        SelectedEntries.Select(entry => entry.FullPath).ToHashSet(StringComparer.Ordinal),
+        _lastClickedPath,
+        PendingSelectFileName,
+        ScrollBehaviorAfterLoad);
+
+    private void FinalizeEntriesLoad(EntryLoadSelectionState state, bool completed)
+    {
 
         var restoredSelection = new List<FileSystemEntry>();
         FileSystemEntry? restoredAnchor = null;
@@ -3796,34 +3870,36 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         }
 
         // Auto-select a specific file (e.g. from breadcrumb search suggestion)
-        if (PendingSelectFileName != null)
+        if (state.PendingSelectFileName != null)
         {
-            var target = Entries.FirstOrDefault(e => e.Name == PendingSelectFileName);
+            var target = Entries.FirstOrDefault(e => e.Name == state.PendingSelectFileName);
             if (target != null)
             {
                 restoredSelection.Clear();
                 restoredSelection.Add(target);
                 restoredAnchor = target;
             }
-            PendingSelectFileName = null;
+            if (completed && string.Equals(PendingSelectFileName, state.PendingSelectFileName, StringComparison.Ordinal))
+                PendingSelectFileName = null;
         }
-        else if (restoredSelection.Count == 0 && selectedPaths.Count > 0)
+        else if (restoredSelection.Count == 0 && state.SelectedPaths.Count > 0)
         {
             restoredSelection = GetSelectableEntries()
-                .Where(e => selectedPaths.Contains(e.FullPath))
+                .Where(e => state.SelectedPaths.Contains(e.FullPath))
                 .ToList();
 
-            restoredAnchor = anchorPath == null
+            restoredAnchor = state.AnchorPath == null
                 ? restoredSelection.FirstOrDefault()
-                : restoredSelection.FirstOrDefault(e => string.Equals(e.FullPath, anchorPath, StringComparison.Ordinal))
+                : restoredSelection.FirstOrDefault(e => string.Equals(e.FullPath, state.AnchorPath, StringComparison.Ordinal))
                     ?? restoredSelection.FirstOrDefault();
         }
 
-        ReplaceSelection(restoredSelection, restoredAnchor);
+        if (restoredSelection.Count > 0 || completed)
+            ReplaceSelection(restoredSelection, restoredAnchor);
 
         // Reset to PreservePosition so background icon/thumbnail updates don't affect scroll.
         // During history restore, keep the mode alive until the view actually scrolls to the target.
-        if (ScrollBehaviorAfterLoad is not ScrollMode.RestoreNavigation and not ScrollMode.ScrollToSelected)
+        if (completed && ScrollBehaviorAfterLoad is not ScrollMode.RestoreNavigation and not ScrollMode.ScrollToSelected)
         {
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;
         }
@@ -3964,6 +4040,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             _directoryWorkCts = new CancellationTokenSource();
             _directoryWorkGeneration++;
         }
+        IsLoading = false;
     }
 
     private bool IsCurrentDirectoryWork(DirectoryWork work)
@@ -3973,6 +4050,11 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     }
 
     private readonly record struct DirectoryWork(int Generation, CancellationToken Token);
+    private sealed record EntryLoadSelectionState(
+        HashSet<string> SelectedPaths,
+        string? AnchorPath,
+        string? PendingSelectFileName,
+        ScrollMode ScrollBehavior);
 
     private void ApplyEntriesPreservingSelection(IReadOnlyList<FileSystemEntry> entries)
     {
@@ -4077,5 +4159,5 @@ public enum GroupField { None, Type, Modified, Size }
 public class FileGroup
 {
     public string Name { get; init; } = "";
-    public IReadOnlyList<FileSystemEntry> Entries { get; init; } = [];
+    public List<FileSystemEntry> Entries { get; init; } = [];
 }

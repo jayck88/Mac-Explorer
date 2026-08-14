@@ -84,14 +84,12 @@ public partial class SortFilterViewModel : ObservableObject
     public void ApplySortAndGroup(Action<ObservableCollection<FileSystemEntry>> setEntries)
     {
         if (_rawEntries.Count == 0) { setEntries([]); Groups = []; return; }
-        var filtered = _rawEntries.Where(e => !e.Name.EndsWith(".fkfinder-tmp"));
-        if (HideSystemFiles)
-            filtered = filtered.Where(e => !SystemFileNames.Contains(e.Name));
-        if (HideDotFiles)
-            filtered = filtered.Where(e => !(!e.IsDirectory && e.Name.StartsWith('.')));
-        if (HideDotFolders)
-            filtered = filtered.Where(e => !(e.IsDirectory && e.Name.StartsWith('.')));
-        var list = filtered.ToList();
+        var list = new List<FileSystemEntry>(_rawEntries.Count);
+        foreach (var entry in _rawEntries)
+        {
+            if (PassesFilter(entry))
+                list.Add(entry);
+        }
         var sorted = SortEntries(list).ToList();
         setEntries(new ObservableCollection<FileSystemEntry>(sorted));
         if (GroupField == GroupField.None)
@@ -105,10 +103,160 @@ public partial class SortFilterViewModel : ObservableObject
         }
     }
 
+    private bool PassesFilter(FileSystemEntry entry)
+    {
+        if (entry.Name.EndsWith(".fkfinder-tmp")) return false;
+        if (HideSystemFiles && SystemFileNames.Contains(entry.Name)) return false;
+        if (HideDotFiles && !entry.IsDirectory && entry.Name.StartsWith('.')) return false;
+        if (HideDotFolders && entry.IsDirectory && entry.Name.StartsWith('.')) return false;
+        return true;
+    }
+
     public void SetRawEntries(IReadOnlyList<FileSystemEntry> entries)
     {
         _rawEntries = entries;
     }
+
+    internal IComparer<FileSystemEntry> BuildEntriesComparer() => new EntriesComparer(SortField, SortAscending);
+
+    // Inserts a streamed batch into the already sorted collection so batched directory
+    // loads avoid a full re-sort and collection replacement per batch. Upper-bound
+    // insertion keeps ties in arrival order, matching the stable full sort of the same
+    // stream. The caller keeps _rawEntries in sync via SetRawEntries.
+    public void InsertBatch(IReadOnlyList<FileSystemEntry> batch, ObservableCollection<FileSystemEntry> target)
+    {
+        var toInsert = new List<FileSystemEntry>(batch.Count);
+        foreach (var entry in batch)
+        {
+            if (PassesFilter(entry))
+                toInsert.Add(entry);
+        }
+        if (toInsert.Count == 0) return;
+
+        var comparer = BuildEntriesComparer();
+        foreach (var entry in toInsert)
+            target.Insert(UpperBound(target, entry, comparer), entry);
+
+        if (GroupField == GroupField.None)
+        {
+            if (Groups.Count > 0)
+                Groups = [];
+        }
+        else
+        {
+            InsertIntoGroups(toInsert, comparer);
+        }
+    }
+
+    private static int UpperBound(IList<FileSystemEntry> list, FileSystemEntry entry, IComparer<FileSystemEntry> comparer)
+    {
+        var low = 0;
+        var high = list.Count;
+        while (low < high)
+        {
+            var middle = low + (high - low) / 2;
+            if (comparer.Compare(list[middle], entry) <= 0)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+
+    private void InsertIntoGroups(IReadOnlyList<FileSystemEntry> entries, IComparer<FileSystemEntry> comparer)
+    {
+        foreach (var entry in entries)
+        {
+            var key = GetGroupKey(entry);
+            FileGroup? group = null;
+            var groupIndex = -1;
+            for (var index = 0; index < Groups.Count; index++)
+            {
+                if (string.Equals(Groups[index].Name, key, StringComparison.Ordinal))
+                {
+                    group = Groups[index];
+                    groupIndex = index;
+                    break;
+                }
+            }
+
+            if (group == null)
+            {
+                group = new FileGroup { Name = key, Entries = [] };
+                groupIndex = GetGroupInsertIndex(group, entry, comparer);
+                Groups.Insert(groupIndex, group);
+            }
+
+            var insertAt = UpperBound(group.Entries, entry, comparer);
+            group.Entries.Insert(insertAt, entry);
+            if (insertAt == 0)
+                MoveGroupBeforeHigherHeads(groupIndex, comparer);
+        }
+    }
+
+    // Groups with equal rank stay ordered by their first (smallest) entry, which is
+    // also the order a full rebuild discovers them in. When an insert lands at the
+    // head of a group, nudge the group left past same-rank neighbours whose head is
+    // now larger so the final layout matches the full rebuild.
+    private void MoveGroupBeforeHigherHeads(int groupIndex, IComparer<FileSystemEntry> comparer)
+    {
+        var rank = GetGroupRank(Groups[groupIndex].Name);
+        var head = Groups[groupIndex].Entries[0];
+        var target = groupIndex;
+        for (var index = groupIndex - 1; index >= 0; index--)
+        {
+            if (GetGroupRank(Groups[index].Name) != rank) break;
+            if (Groups[index].Entries.Count == 0)
+            {
+                target = index;
+                continue;
+            }
+            if (comparer.Compare(Groups[index].Entries[0], head) > 0)
+                target = index;
+            else
+                break;
+        }
+        if (target == groupIndex) return;
+        var group = Groups[groupIndex];
+        Groups.RemoveAt(groupIndex);
+        Groups.Insert(target, group);
+    }
+
+    private int GetGroupInsertIndex(FileGroup newGroup, FileSystemEntry firstEntry, IComparer<FileSystemEntry> comparer)
+    {
+        var newRank = GetGroupRank(newGroup.Name);
+        for (var index = 0; index < Groups.Count; index++)
+        {
+            var existingRank = GetGroupRank(Groups[index].Name);
+            if (existingRank > newRank)
+                return index;
+            if (existingRank == newRank
+                && Groups[index].Entries.Count > 0
+                && comparer.Compare(Groups[index].Entries[0], firstEntry) > 0)
+            {
+                return index;
+            }
+        }
+        return Groups.Count;
+    }
+
+    private int GetGroupRank(string name) => GroupField switch
+    {
+        GroupField.Type => name == "文件夹" ? 1 : 0,
+        GroupField.Modified => Array.IndexOf(DateGroupOrder, name),
+        GroupField.Size => Array.IndexOf(SizeGroupOrder, name),
+        _ => 0
+    };
+
+    private string GetGroupKey(FileSystemEntry entry) => GroupField switch
+    {
+        GroupField.Type => entry.IsVirtual
+            ? GetAiTypeLabel(entry.VirtualFolderType!)
+            : entry.IsDirectory ? "文件夹" : GetCategoryName(entry.Extension),
+        GroupField.Modified => GetDateGroup(entry.LastModified),
+        GroupField.Size => entry.IsDirectory ? "文件夹" : GetSizeGroup(entry.Size),
+        _ => string.Empty
+    };
 
     private IEnumerable<FileSystemEntry> SortEntries(IReadOnlyList<FileSystemEntry> entries) => SortField switch
     {
@@ -132,15 +280,13 @@ public partial class SortFilterViewModel : ObservableObject
 
     private List<FileGroup> BuildGroups(List<FileSystemEntry> sorted) => GroupField switch
     {
-        GroupField.Type => sorted.GroupBy(e =>
-                e.IsVirtual ? GetAiTypeLabel(e.VirtualFolderType!)
-                : (e.IsDirectory ? "文件夹" : GetCategoryName(e.Extension)))
+        GroupField.Type => sorted.GroupBy(GetGroupKey)
             .OrderBy(g => g.Key == "文件夹" ? 1 : 0)
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
-        GroupField.Modified => sorted.GroupBy(e => GetDateGroup(e.LastModified))
+        GroupField.Modified => sorted.GroupBy(GetGroupKey)
             .OrderBy(g => Array.IndexOf(DateGroupOrder, g.Key))
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
-        GroupField.Size => sorted.GroupBy(e => e.IsDirectory ? "文件夹" : GetSizeGroup(e.Size))
+        GroupField.Size => sorted.GroupBy(GetGroupKey)
             .OrderBy(g => Array.IndexOf(SizeGroupOrder, g.Key))
             .Select(g => new FileGroup { Name = g.Key, Entries = g.ToList() }).ToList(),
         _ => []
@@ -192,4 +338,39 @@ public partial class SortFilterViewModel : ObservableObject
         "date" => "日期",
         _ => virtualFolderType
     };
+
+    // Mirrors the stable OrderBy chain in SortEntries so incremental inserts produce
+    // the same total order as a full re-sort of the same stream.
+    private sealed class EntriesComparer(SortField sortField, bool ascending) : IComparer<FileSystemEntry>
+    {
+        public int Compare(FileSystemEntry? left, FileSystemEntry? right)
+        {
+            if (ReferenceEquals(left, right)) return 0;
+            if (left == null) return -1;
+            if (right == null) return 1;
+
+            // Files always sort before directories, matching OrderBy(e => e.IsDirectory).
+            var directoryOrder = left.IsDirectory.CompareTo(right.IsDirectory);
+            if (directoryOrder != 0) return directoryOrder;
+
+            return sortField switch
+            {
+                SortField.Name => Ordered(StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name)),
+                SortField.Modified => Ordered(left.LastModified.CompareTo(right.LastModified)),
+                SortField.Size => Ordered(left.Size.CompareTo(right.Size)),
+                SortField.Type => TypeOrdered(left, right),
+                _ => Ordered(StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name))
+            };
+        }
+
+        private int Ordered(int result) => ascending ? result : -result;
+
+        private int TypeOrdered(FileSystemEntry left, FileSystemEntry right)
+        {
+            var extension = Ordered(StringComparer.OrdinalIgnoreCase.Compare(left.Extension, right.Extension));
+            if (extension != 0) return extension;
+            // The name tie-breaker stays ascending in both sort directions.
+            return StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name);
+        }
+    }
 }

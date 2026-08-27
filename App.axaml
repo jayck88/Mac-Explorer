@@ -8,11 +8,16 @@
              RequestedThemeVariant="Default">
 
     <Application.Resources>
-        <views:BoolNotConverter x:Key="BoolNotConverter"/>
-        <converters:StringToGeometryConverter x:Key="StringToGeometryConverter"/>
-        <converters:StringToColorConverter x:Key="StringToColorConverter"/>
-        <converters:FileEntryToIconConverter x:Key="FileEntryToIconConverter"/>
-        <converters:FileEntryToIconColorConverter x:Key="FileEntryToIconColorConverter"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://MacExplorer/Assets/TypographyTokens.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <views:BoolNotConverter x:Key="BoolNotConverter"/>
+            <converters:StringToGeometryConverter x:Key="StringToGeometryConverter"/>
+            <converters:StringToColorConverter x:Key="StringToColorConverter"/>
+            <converters:FileEntryToIconConverter x:Key="FileEntryToIconConverter"/>
+            <converters:FileEntryToIconColorConverter x:Key="FileEntryToIconColorConverter"/>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.DataTemplates>

@@ -1,0 +1,48 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System"
+                    xmlns:media="using:Avalonia.Media">
+    <!--
+        The standard typography preset. Runtime presets are derived from these
+        values, so this dictionary remains the only source of raw text metrics.
+    -->
+    <FontFamily x:Key="FontFamilyUi">System Font, PingFang SC, Segoe UI, Helvetica Neue, Arial, sans-serif</FontFamily>
+    <FontFamily x:Key="FontFamilySidebar">PingFang SC</FontFamily>
+    <FontFamily x:Key="FontFamilyMono">Menlo, Monaco, monospace</FontFamily>
+    <media:FontWeight x:Key="FontWeightLight">Light</media:FontWeight>
+    <media:FontWeight x:Key="FontWeightRegular">Normal</media:FontWeight>
+    <media:FontWeight x:Key="FontWeightMedium">Medium</media:FontWeight>
+    <media:FontWeight x:Key="FontWeightSemibold">SemiBold</media:FontWeight>
+    <media:FontWeight x:Key="FontWeightBold">Bold</media:FontWeight>
+
+    <!-- Fixed glyph metrics. These represent icon geometry and never scale. -->
+    <sys:Double x:Key="FontSizeBadgeTiny">6</sys:Double>
+    <sys:Double x:Key="FontSizeIconGlyph">9</sys:Double>
+
+    <!-- Scalable semantic type ramp. -->
+    <sys:Double x:Key="FontSizeMeta">10</sys:Double>
+    <sys:Double x:Key="FontSizeCaption">11</sys:Double>
+    <sys:Double x:Key="FontSizeLabel">12</sys:Double>
+    <sys:Double x:Key="FontSizeBody">13</sys:Double>
+    <sys:Double x:Key="FontSizeBodyLarge">14</sys:Double>
+    <sys:Double x:Key="FontSizeHeading">16</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">18</sys:Double>
+    <sys:Double x:Key="FontSizeDisplay">24</sys:Double>
+
+    <!-- Line heights scale with the selected type preset. -->
+    <sys:Double x:Key="LineHeightMeta">14</sys:Double>
+    <sys:Double x:Key="LineHeightCaption">16</sys:Double>
+    <sys:Double x:Key="LineHeightLabel">18</sys:Double>
+    <sys:Double x:Key="LineHeightBody">20</sys:Double>
+    <sys:Double x:Key="LineHeightBodyLarge">22</sys:Double>
+    <sys:Double x:Key="LineHeightHeading">24</sys:Double>
+    <sys:Double x:Key="LineHeightTitle">26</sys:Double>
+    <sys:Double x:Key="LineHeightDisplay">32</sys:Double>
+
+    <!-- Text-bearing layout metrics. Small text never reduces hit targets. -->
+    <sys:Double x:Key="TypographyListRowMinHeight">28</sys:Double>
+    <sys:Double x:Key="TypographyTextControlMinHeight">34</sys:Double>
+    <sys:Double x:Key="TypographyInlineEditorHeight">22</sys:Double>
+    <sys:Double x:Key="TypographySettingsRowMinHeight">52</sys:Double>
+    <sys:Double x:Key="TypographySettingsCompactRowMinHeight">40</sys:Double>
+</ResourceDictionary>

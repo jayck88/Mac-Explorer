@@ -14,6 +14,7 @@ public class MacContextMenuService : IContextMenuService
     private readonly ConcurrentDictionary<string, byte> _installChecks = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<RegisteredApp>> _applicationsByType = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _applicationLoads = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Task<string?>> _defaultApplicationIconLoads = new(StringComparer.Ordinal);
 
     public MacContextMenuService(
         IApplicationLauncherService launcher,
@@ -142,6 +143,44 @@ public class MacContextMenuService : IContextMenuService
             .Where(app => IsAppInstalledForMenu(app.BundleIdentifier))
             .ToList();
         return Task.FromResult(apps);
+    }
+
+    public async Task<string?> GetDefaultApplicationIconBase64Async(string filePath)
+    {
+        var loadTask = _defaultApplicationIconLoads.GetOrAdd(
+            filePath,
+            LoadDefaultApplicationIconBase64Async);
+        var icon = await loadTask.ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(icon))
+            _defaultApplicationIconLoads.TryRemove(filePath, out _);
+        return icon;
+    }
+
+    private async Task<string?> LoadDefaultApplicationIconBase64Async(string filePath)
+    {
+        var appPath = await Task.Run(() => QueryDefaultApplicationPath(filePath)).ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(appPath)
+            ? null
+            : await _openWithService.GetAppIconBase64ByPathAsync(appPath).ConfigureAwait(false);
+    }
+
+    private static string? QueryDefaultApplicationPath(string filePath)
+    {
+        var pathLiteral = JsonSerializer.Serialize(filePath);
+        var script = $$"""
+            ObjC.import('AppKit');
+            ObjC.import('Foundation');
+            var url = $.NSURL.fileURLWithPath({{pathLiteral}});
+            var appUrl = $.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL(url);
+            appUrl ? ObjC.unwrap(appUrl.path) : '';
+            """;
+
+        var (exitCode, output) = RunProcess(3000, "/usr/bin/osascript", "-l", "JavaScript", "-e", script);
+        if (exitCode != 0 || string.IsNullOrWhiteSpace(output))
+            return null;
+
+        var appPath = output.Trim();
+        return Directory.Exists(appPath) ? appPath : null;
     }
 
     private void StartApplicationsLoad(string cacheKey, string filePath)

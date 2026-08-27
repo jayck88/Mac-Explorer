@@ -53,6 +53,8 @@ public static class FileIconResolver
                 or ".sql" or ".graphql" or ".gql" => "file-code",
             // Certificate files
             ".cer" or ".crt" or ".pem" or ".p12" or ".pfx" or ".der" or ".cert" or ".ca-bundle" => "file-certificate",
+            // Android application package
+            ".apk" => "file-android-package",
             // System installers / packages
             ".pkg" or ".dmg" or ".msi" or ".exe" or ".deb" or ".rpm" or ".appimage" or ".snap" => "file-installer",
             // Font files

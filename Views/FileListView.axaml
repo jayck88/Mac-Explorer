@@ -47,8 +47,8 @@
         <ControlTheme x:Key="FileListItemTheme" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0,1"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -65,16 +65,16 @@
                 </ControlTemplate>
             </Setter>
             <Style Selector="^:pointerover">
-                <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+                <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
             </Style>
             <Style Selector="^:selected">
-                <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+                <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
             </Style>
             <Style Selector="^:selected:pointerover">
-                <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+                <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
             </Style>
             <Style Selector="^:focus-visible">
-                <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
             </Style>
         </ControlTheme>
 
@@ -82,7 +82,7 @@
             <Setter Property="Width" Value="108"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="1"/>
-            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -104,22 +104,22 @@
                 </ControlTemplate>
             </Setter>
             <Style Selector="^:pointerover">
-                <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+                <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
             </Style>
             <Style Selector="^:selected">
-                <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+                <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
             </Style>
             <Style Selector="^:selected:pointerover">
-                <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+                <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
             </Style>
             <Style Selector="^:focus-visible">
-                <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
             </Style>
         </ControlTheme>
 
         <DataTemplate x:Key="ListEntryTemplate" x:DataType="models:FileSystemEntry">
             <Border Classes="file-list-entry entry-content" Classes.selected="{Binding IsSelected}"
-                    CornerRadius="4" Padding="12,3"
+                    CornerRadius="{DynamicResource InteractionCornerRadius}" Padding="12,3"
                     Opacity="{Binding IsCut, Converter={StaticResource CutOpacityConverter}}"
                     PointerPressed="OnListItemPointerPressed"
                     PointerMoved="OnItemPointerMoved"
@@ -137,24 +137,24 @@
                                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                 BorderBrush="White" BorderThickness="1" IsVisible="{Binding HasGitBadge}"
                                 Background="{Binding GitBadgeColor}">
-                            <TextBlock Text="{Binding GitBadgeText}" FontSize="6" FontWeight="Bold" Foreground="White"
+                            <TextBlock Text="{Binding GitBadgeText}" FontSize="{StaticResource FontSizeBadgeTiny}" FontWeight="{StaticResource FontWeightBold}" Foreground="{DynamicResource TextOnAccentBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                     <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Grid.Column="1" Text="{Binding DisplayName}"
-                               VerticalAlignment="Center" Margin="8,0,0,0" FontSize="13"
+                               VerticalAlignment="Center" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeBody}"
                                TextTrimming="CharacterEllipsis"
-                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Grid.Column="2"
                                Text="{Binding LastModified, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
-                               VerticalAlignment="Center" FontSize="12"
-                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Grid.Column="3" Text="{Binding FormattedSize}"
-                               VerticalAlignment="Center" FontSize="12"
-                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeLabel}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Grid.Column="4" Text="{Binding KindText}"
-                               VerticalAlignment="Center" FontSize="11"
-                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                               VerticalAlignment="Center" FontSize="{DynamicResource FontSizeCaption}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -178,17 +178,17 @@
                                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                 BorderBrush="White" BorderThickness="1.5" IsVisible="{Binding HasGitBadge}"
                                 Background="{Binding GitBadgeColor}">
-                            <TextBlock Text="{Binding GitBadgeText}" FontSize="9" FontWeight="Bold" Foreground="White"
+                            <TextBlock Text="{Binding GitBadgeText}" FontSize="{StaticResource FontSizeIconGlyph}" FontWeight="{StaticResource FontWeightBold}" Foreground="{DynamicResource TextOnAccentBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                     <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Text="{Binding DisplayName}"
                                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                               FontSize="11" HorizontalAlignment="Center" Margin="0,6,0,0"
-                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                               FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Margin="0,6,0,0"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="{Binding VirtualCountText}" IsVisible="{Binding IsVirtual}"
-                               FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"
-                               Foreground="{DynamicResource ColorTextPrimary}"/>
+                               FontSize="{DynamicResource FontSizeMeta}" HorizontalAlignment="Center" Margin="0,2,0,0"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -249,62 +249,32 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Border.file-list-entry:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="Border.file-list-entry.selected">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         </Style>
         <Style Selector="ListBoxItem:selected Border.file-list-entry">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         </Style>
         <Style Selector="Border.file-list-entry.selected:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
         </Style>
         <Style Selector="ListBoxItem:selected Border.file-list-entry:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
         </Style>
         <Style Selector="Border.file-grid-content">
             <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         </Style>
         <Style Selector="Border.file-grid-content:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="Border.file-grid-content.selected">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         </Style>
         <Style Selector="Border.file-grid-content.selected:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgSelectedHover}"/>
-        </Style>
-
-        <!-- Inline rename is intentionally compact: it should read as an editing state
-             of the filename, not as a full-width form field. -->
-        <Style Selector="TextBox.inline-rename-editor">
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
-            <Setter Property="Padding" Value="5,0"/>
-            <Setter Property="SelectionBrush" Value="{DynamicResource ColorAccentMedium}"/>
-            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource ColorTextPrimary}"/>
-            <Setter Property="CaretBrush" Value="{DynamicResource ColorAccent}"/>
-        </Style>
-        <Style Selector="TextBox.inline-rename-editor:pointerover, TextBox.inline-rename-editor:focus">
-            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-        <Style Selector="TextBox.inline-rename-editor /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
-        </Style>
-        <Style Selector="TextBox.inline-rename-editor:pointerover /template/ Border#PART_BorderElement, TextBox.inline-rename-editor:focus /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
         </Style>
 
         <Style Selector="Border.entry-content.drag-over">
@@ -362,7 +332,7 @@
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Margin="0,80,0,0">
                     <PathIcon Data="{x:Static icons:Icons.Folder}" Width="48" Height="48"
-                              Foreground="{DynamicResource ColorTextQuaternary}"
+                              Foreground="{DynamicResource TextSubtleBrush}"
                               Opacity="0.3" HorizontalAlignment="Center"/>
                     <TextBlock Classes="empty-state-text" x:Name="EmptyStateText" Text="此文件夹为空"/>
                 </StackPanel>
@@ -406,9 +376,9 @@
                                 Width="180" Spacing="8">
                         <ProgressBar IsIndeterminate="True" Height="3"/>
                         <TextBlock Text="正在加载..."
-                                   FontSize="12"
+                                   FontSize="{DynamicResource FontSizeLabel}"
                                    TextAlignment="Center"
-                                   Foreground="{DynamicResource ColorTextSecondary}"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </Border>
         </Grid>

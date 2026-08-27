@@ -117,9 +117,9 @@ public partial class RemoteConnectionDialog : DialogWindow
                     Spacing = 12,
                     Children =
                     {
-                        new TextBlock { Text = $"无法连接到服务器：", FontSize = 13 },
-                        new TextBlock { Text = ex.Message, FontSize = 12, TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
-                                       Foreground = new global::Avalonia.Media.SolidColorBrush(global::Avalonia.Media.Color.Parse("#FF3B30")) },
+                        AppTypography.BindFontSize(new TextBlock { Text = "无法连接到服务器：" }, AppTypography.Body),
+                        AppTypography.BindFontSize(new TextBlock { Text = ex.Message, TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+                                       Foreground = new global::Avalonia.Media.SolidColorBrush(global::Avalonia.Media.Color.Parse("#FF3B30")) }, AppTypography.Label),
                         new Button { Content = "确定", HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Right,
                                     Padding = new global::Avalonia.Thickness(16, 6) }
                     }

@@ -175,11 +175,50 @@ public sealed class FileListViewModelCreateTests
         }
     }
 
+    [Fact]
+    public void CurrentLocationTitleFollowsDirectoryRootAndHomeNavigation()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var navigation = new NavigationViewModel(fileService)
+        {
+            CurrentPath = "/tmp/FKFinderTests/Documents",
+            IsHomePage = false
+        };
+        navigation.UpdateBreadcrumbs();
+        using var viewModel = CreateViewModel(fileService, navigation: navigation);
+
+        Assert.Equal("Documents", viewModel.CurrentLocationTitle);
+
+        navigation.CurrentPath = "/";
+        navigation.UpdateBreadcrumbs();
+        Assert.Equal("/", viewModel.CurrentLocationTitle);
+
+        navigation.GoHome();
+        Assert.Equal("首页", viewModel.CurrentLocationTitle);
+    }
+
+    [Fact]
+    public void CurrentLocationTitleUsesLastSpecialViewBreadcrumbAndNotifiesBindings()
+    {
+        var fileService = new FakeFileService("/tmp/FKFinderTests");
+        var navigation = new NavigationViewModel(fileService);
+        using var viewModel = CreateViewModel(fileService, navigation: navigation);
+        var titleChanged = false;
+        viewModel.PropertyChanged += (_, args) =>
+            titleChanged |= args.PropertyName == nameof(FileListViewModel.CurrentLocationTitle);
+
+        navigation.UpdateBreadcrumbsForAi("照片", "ai://photos", "最近项目");
+
+        Assert.Equal("最近项目", viewModel.CurrentLocationTitle);
+        Assert.True(titleChanged);
+    }
+
     private static FileListViewModel CreateViewModel(
         FakeFileService fileService,
-        IDirectoryChangeNotifier? directoryChangeNotifier = null)
+        IDirectoryChangeNotifier? directoryChangeNotifier = null,
+        NavigationViewModel? navigation = null)
     {
-        var navigation = new NavigationViewModel(fileService)
+        navigation ??= new NavigationViewModel(fileService)
         {
             CurrentPath = fileService.HomeDirectory,
             IsHomePage = false

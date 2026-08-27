@@ -10,7 +10,7 @@
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="MacExplorer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel" x:CompileBindings="False"
-        Title="Mac Explorer"
+        Title="{Binding FileList.CurrentLocationTitle, FallbackValue='Mac Explorer'}"
         Width="1280" Height="800"
         MinWidth="1000" MinHeight="680">
 
@@ -23,8 +23,8 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
@@ -43,7 +43,6 @@
             </Setter>
             <Setter Property="Transitions">
                 <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/>
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.09" Easing="QuadraticEaseOut"/>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut"/>
                 </Transitions>
@@ -53,110 +52,38 @@
             <Setter Property="Width" Value="14"/>
             <Setter Property="Height" Value="14"/>
         </Style>
-        <Style Selector="Button.title-nav-back">
-            <Setter Property="Background" Value="{DynamicResource ColorSurfaceSecondary}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
-        </Style>
         <Style Selector="Button.title-nav-button:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        </Style>
-        <Style Selector="Button.title-nav-back:pointerover">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="Button.title-nav-button:pressed">
-            <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
             <Setter Property="RenderTransform" Value="scale(0.94)"/>
         </Style>
         <Style Selector="Button.title-nav-button:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <Style Selector="Button.title-nav-button:disabled">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Opacity" Value="0.42"/>
+            <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
         <Style Selector="Grid.title-search-host">
             <Setter Property="Width" Value="220"/>
-            <Setter Property="Height" Value="32"/>
+            <Setter Property="Height" Value="30"/>
         </Style>
         <Style Selector="Grid.title-search-expanded">
             <Setter Property="Width" Value="220"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="IsHitTestVisible" Value="False"/>
-        </Style>
-        <Style Selector="Border.title-search-surface">
-            <Setter Property="Opacity" Value="0"/>
-            <Setter Property="RenderTransform" Value="scale(0.145,1)"/>
-            <Setter Property="RenderTransformOrigin" Value="1,0.5"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.11" Easing="CubicEaseOut"/>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut"/>
-                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
-                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Grid.title-search-content">
-            <Setter Property="Opacity" Value="0"/>
-            <Setter Property="RenderTransform" Value="translateX(8px)"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.13" Easing="CubicEaseOut"/>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.title-search-trigger">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="MinWidth" Value="32"/>
-            <Setter Property="MinHeight" Value="32"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="HorizontalAlignment" Value="Right"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="999"/>
-            <Setter Property="RenderTransform" Value="scale(1)"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.08" Easing="CubicEaseOut"/>
-                    <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="QuadraticEaseOut"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.title-search-trigger PathIcon">
-            <Setter Property="Width" Value="14"/>
-            <Setter Property="Height" Value="14"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-        </Style>
-        <Style Selector="Button.title-search-trigger:pointerover">
-            <Setter Property="Background" Value="{DynamicResource AddressbarBgHover}"/>
-        </Style>
-        <Style Selector="Button.title-search-trigger:pressed">
-            <Setter Property="RenderTransform" Value="scale(0.92)"/>
-        </Style>
-
-        <Style Selector="Grid.title-search-host:pointerover Grid.title-search-expanded, Grid.title-search-host:focus-within Grid.title-search-expanded, Grid.title-search-host.has-query Grid.title-search-expanded">
+            <Setter Property="Height" Value="30"/>
             <Setter Property="IsHitTestVisible" Value="True"/>
         </Style>
-        <Style Selector="Grid.title-search-host:pointerover Border.title-search-surface, Grid.title-search-host:focus-within Border.title-search-surface, Grid.title-search-host.has-query Border.title-search-surface">
+        <Style Selector="Border.title-search-surface">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="RenderTransform" Value="none"/>
         </Style>
-        <Style Selector="Grid.title-search-host:pointerover Grid.title-search-content, Grid.title-search-host:focus-within Grid.title-search-content, Grid.title-search-host.has-query Grid.title-search-content">
+        <Style Selector="Grid.title-search-content">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="RenderTransform" Value="none"/>
-        </Style>
-        <Style Selector="Grid.title-search-host:pointerover Button.title-search-trigger, Grid.title-search-host:focus-within Button.title-search-trigger, Grid.title-search-host.has-query Button.title-search-trigger">
-            <Setter Property="Opacity" Value="0"/>
-            <Setter Property="RenderTransform" Value="scale(0.84)"/>
-        </Style>
-        <Style Selector="Grid.title-search-host:focus-within Button.title-search-trigger, Grid.title-search-host.has-query Button.title-search-trigger">
-            <Setter Property="IsHitTestVisible" Value="False"/>
         </Style>
 
         <Style Selector="controls|AppWindow:compact Grid.title-search-host">
@@ -169,77 +96,6 @@
             <Setter Property="Width" Value="180"/>
         </Style>
     </controls:AppWindow.Styles>
-
-    <controls:AppWindow.TitleBarContent>
-        <Grid ColumnDefinitions="Auto,*,Auto" Margin="8,0" VerticalAlignment="Center"
-              chrome:WindowDecorationProperties.ElementRole="TitleBar">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left"
-                        chrome:WindowDecorationProperties.ElementRole="User">
-                <Button x:Name="SidebarToggleButton" Classes="ghost toolbar-btn w32"
-                        ToolTip.Tip="显示或隐藏侧栏" AutomationProperties.Name="显示或隐藏侧栏"
-                        IsVisible="False" Click="ToggleSidebar">
-                    <PathIcon Data="{x:Static icons:Icons.List}" Width="14" Height="14"/>
-                </Button>
-                <Button x:Name="BackButton" Classes="title-nav-button title-nav-back"
-                        ToolTip.Tip="后退 ⌘[" AutomationProperties.Name="后退"
-                        Click="NavigateBack" IsEnabled="{Binding FileList.CanGoBack}">
-                    <PathIcon Data="{x:Static icons:Icons.Back}"/>
-                </Button>
-                <Button x:Name="ForwardButton" Classes="title-nav-button title-nav-forward"
-                        ToolTip.Tip="前进 ⌘]" AutomationProperties.Name="前进"
-                        Click="NavigateForward" IsEnabled="{Binding FileList.CanGoForward}">
-                    <PathIcon Data="{x:Static icons:Icons.Forward}"/>
-                </Button>
-                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="上级目录 ⌘↑" Click="NavigateUp"
-                        IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
-                    <PathIcon Data="{x:Static icons:Icons.Up}" Width="14" Height="14"/>
-                </Button>
-                <Button Classes="ghost toolbar-btn w32" ToolTip.Tip="刷新 ⌘R" Click="RefreshView">
-                    <PathIcon Data="{x:Static icons:Icons.Refresh}" Width="14" Height="14"/>
-                </Button>
-            </StackPanel>
-
-            <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
-                                 DataContext="{Binding FileList}"
-                                 HorizontalAlignment="Stretch"
-                                 MinWidth="280" MaxWidth="700"
-                                 Margin="12,0"
-                                 VerticalAlignment="Center"
-                                 chrome:WindowDecorationProperties.ElementRole="User"/>
-
-            <!-- Search: icon by default, expands on hover/focus/active query. -->
-            <Grid Grid.Column="2" x:Name="SearchHost" Classes="title-search-host"
-                  HorizontalAlignment="Right" VerticalAlignment="Center"
-                  chrome:WindowDecorationProperties.ElementRole="User">
-                <Grid Classes="title-search-expanded" HorizontalAlignment="Right">
-                    <Border Classes="search-bar title-search-surface"/>
-                    <Grid Classes="title-search-content" ColumnDefinitions="Auto,*,Auto" Margin="10,4">
-                        <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
-                                  Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
-                                  Foreground="{DynamicResource TextMutedBrush}"/>
-                        <TextBox Grid.Column="1" x:Name="SearchBox"
-                                 Classes="search-input omnibox-input"
-                                 PlaceholderText="搜索..."
-                                 Text="{Binding FileList.SearchQuery, Mode=OneWay}"
-                                 TextChanged="OnSearchTextChanged"
-                                 KeyDown="OnSearchKeyDown"/>
-                        <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
-                                Classes="ghost close-btn search-clear-btn"
-                                VerticalContentAlignment="Center"
-                                HorizontalContentAlignment="Center"
-                                Width="20" Height="20" Padding="0" Background="Transparent" FontSize="11"
-                                Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
-                                Click="ClearSearch"/>
-                    </Grid>
-                </Grid>
-                <Button x:Name="SearchRevealButton" Classes="title-search-trigger"
-                        ToolTip.Tip="搜索" AutomationProperties.Name="搜索"
-                        IsTabStop="False" Click="RevealSearch">
-                    <PathIcon Data="{x:Static icons:Icons.Search}"/>
-                </Button>
-            </Grid>
-        </Grid>
-    </controls:AppWindow.TitleBarContent>
 
     <Grid>
     <Border x:Name="RootLayout" CornerRadius="0">
@@ -259,17 +115,86 @@
                                 Classes="ghost glass-btn-ghost">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Data="{x:Static icons:Icons.Settings}" Width="14" Height="14"/>
-                                <TextBlock Text="设置" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="设置" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </Grid>
                 </controls:SurfaceCard.Content>
             </controls:SurfaceCard>
 
-            <!-- Right: Toolbar + Content -->
-            <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="4,0,0,0">
-                <!-- Row 0: Toolbar — Liquid Glass card -->
-                <controls:SurfaceCard Grid.Row="0" CornerRadius="14" Padding="0"
+            <!-- Right: Navigation + Toolbar + Content -->
+            <Grid Grid.Column="1" RowDefinitions="40,Auto,*" Margin="4,0,0,0">
+                <!-- Row 0: navigation, breadcrumb and persistent search -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16"
+                      VerticalAlignment="Center"
+                      chrome:WindowDecorationProperties.ElementRole="TitleBar">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left"
+                                chrome:WindowDecorationProperties.ElementRole="User">
+                        <Button x:Name="SidebarToggleButton" Classes="title-nav-button"
+                                ToolTip.Tip="显示或隐藏侧栏" AutomationProperties.Name="显示或隐藏侧栏"
+                                IsVisible="False" Click="ToggleSidebar">
+                            <PathIcon Data="{x:Static icons:Icons.List}"/>
+                        </Button>
+                        <Button x:Name="BackButton" Classes="title-nav-button"
+                                ToolTip.Tip="后退 ⌘[" AutomationProperties.Name="后退"
+                                Click="NavigateBack" IsEnabled="{Binding FileList.CanGoBack}">
+                            <PathIcon Data="{x:Static icons:Icons.Back}"/>
+                        </Button>
+                        <Button x:Name="ForwardButton" Classes="title-nav-button"
+                                ToolTip.Tip="前进 ⌘]" AutomationProperties.Name="前进"
+                                Click="NavigateForward" IsEnabled="{Binding FileList.CanGoForward}">
+                            <PathIcon Data="{x:Static icons:Icons.Forward}"/>
+                        </Button>
+                        <Button Classes="title-nav-button" ToolTip.Tip="上级目录 ⌘↑" Click="NavigateUp"
+                                IsVisible="{Binding FileList.IsHomePage, Converter={StaticResource BoolNotConverter}}">
+                            <PathIcon Data="{x:Static icons:Icons.Up}"/>
+                        </Button>
+                        <Button Classes="title-nav-button" ToolTip.Tip="刷新 ⌘R" Click="RefreshView">
+                            <PathIcon Data="{x:Static icons:Icons.Refresh}"/>
+                        </Button>
+                    </StackPanel>
+
+                    <local:BreadcrumbBar Grid.Column="1" x:Name="BreadcrumbControl"
+                                         DataContext="{Binding FileList}"
+                                         HorizontalAlignment="Stretch"
+                                         MinWidth="280"
+                                         VerticalAlignment="Center"
+                                         chrome:WindowDecorationProperties.ElementRole="User"/>
+
+                    <Grid Grid.Column="2" x:Name="SearchHost" Classes="title-search-host"
+                          HorizontalAlignment="Right" VerticalAlignment="Center"
+                          chrome:WindowDecorationProperties.ElementRole="User">
+                        <Grid Classes="title-search-expanded" HorizontalAlignment="Right">
+                            <Border Classes="breadcrumb-bar title-search-surface"
+                                    Padding="4,2"
+                                    Background="{DynamicResource SurfaceElevatedBrush}">
+                                <Grid Classes="title-search-content" ColumnDefinitions="Auto,*,Auto" Margin="6,0">
+                                    <PathIcon Grid.Column="0" Data="{x:Static icons:Icons.Search}"
+                                              Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center"
+                                              Foreground="{DynamicResource TextMutedBrush}"/>
+                                    <TextBox Grid.Column="1" x:Name="SearchBox"
+                                             Classes="search-input omnibox-input"
+                                             FontSize="{DynamicResource FontSizeLabel}"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             PlaceholderText="搜索..."
+                                             Text="{Binding FileList.SearchQuery, Mode=OneWay}"
+                                             TextChanged="OnSearchTextChanged"
+                                             KeyDown="OnSearchKeyDown"/>
+                                    <Button Grid.Column="2" x:Name="SearchClearBtn" Content="✕"
+                                            Classes="ghost close-btn search-clear-btn"
+                                            VerticalContentAlignment="Center"
+                                            HorizontalContentAlignment="Center"
+                                            Width="20" Height="20" Padding="0" Background="Transparent" FontSize="{DynamicResource FontSizeCaption}"
+                                            Foreground="{DynamicResource TextMutedBrush}" IsVisible="False"
+                                            Click="ClearSearch"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <!-- Row 1: Toolbar — Liquid Glass card -->
+                <controls:SurfaceCard Grid.Row="1" CornerRadius="14" Padding="0"
                                            Margin="0,0,0,4">
                     <controls:SurfaceCard.Content>
                         <Border CornerRadius="14" ClipToBounds="True">
@@ -278,8 +203,8 @@
                     </controls:SurfaceCard.Content>
                 </controls:SurfaceCard>
 
-                <!-- Row 1: Content + Status bar — single Liquid Glass card -->
-                <controls:SurfaceCard Grid.Row="1" CornerRadius="14" Padding="0">
+                <!-- Row 2: Content + Status bar — single Liquid Glass card -->
+                <controls:SurfaceCard Grid.Row="2" CornerRadius="14" Padding="0">
                     <controls:SurfaceCard.Content>
                         <Border CornerRadius="14" ClipToBounds="True">
                         <Grid RowDefinitions="*,Auto">
@@ -324,15 +249,15 @@
                             <Border Grid.Row="1" Height="32">
                                 <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,0">
                                     <TextBlock Grid.Column="0" Text="{Binding FileList.StatusSummaryText}"
-                                               FontSize="11" VerticalAlignment="Center"
+                                               FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextMutedBrush}"/>
                                     <Grid Grid.Column="1" ColumnDefinitions="Auto,*" Margin="8,0,12,0"
                                           IsVisible="{Binding FileList.HasStatusMessage}">
-                                        <TextBlock Grid.Column="0" Text="·" FontSize="11"
+                                        <TextBlock Grid.Column="0" Text="·" FontSize="{DynamicResource FontSizeCaption}"
                                                    Margin="0,0,5,0" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextMutedBrush}"/>
                                         <TextBlock Grid.Column="1" Text="{Binding FileList.StatusText}"
-                                                   FontSize="11" VerticalAlignment="Center"
+                                                   FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis"
                                                    ToolTip.Tip="{Binding FileList.StatusText}"
                                                    Foreground="{DynamicResource TextMutedBrush}"/>
@@ -340,7 +265,7 @@
                                     <Button Grid.Column="2" x:Name="TaskButton" IsVisible="False"
                                             Classes="ghost glass-btn-ghost" Padding="8,3" Margin="0,2,8,2"
                                             Click="ToggleTaskPanel">
-                                        <TextBlock x:Name="TaskButtonText" Text="后台任务" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TaskButtonText" Text="后台任务" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"/>
                                     </Button>
                                     <Border Grid.Column="3" IsVisible="{Binding FileList.HasLocationStatus}"
                                             VerticalAlignment="Center"
@@ -352,10 +277,10 @@
                                                      VerticalAlignment="Center"/>
                                             <Ellipse Width="6" Height="6"
                                                      IsVisible="{Binding FileList.IsRemoteLocationDisconnected}"
-                                                     Fill="{DynamicResource ColorTextDisabled}"
+                                                     Fill="{DynamicResource TextDisabledBrush}"
                                                      VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding FileList.LocationStatusText}"
-                                                       FontSize="10" VerticalAlignment="Center"
+                                                       FontSize="{DynamicResource FontSizeMeta}" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextMutedBrush}"/>
                                         </StackPanel>
                                     </Border>
@@ -391,13 +316,13 @@
                     <!-- Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0">
                         <TextBlock Grid.Column="0" x:Name="TaskPanelTitle"
-                                   Text="后台任务" FontSize="13" FontWeight="SemiBold"
+                                   Text="后台任务" FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    VerticalAlignment="Center" Margin="0,1,0,0"/>
                         <Button Grid.Column="1" x:Name="ClearPanelButton"
                                 Classes="ghost compact" Content="清空"
                                 Click="ClearAllPanelTasks" Margin="0,0,2,0"
-                                FontSize="12" VerticalAlignment="Center"/>
+                                FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                         <Button Grid.Column="2" x:Name="ClosePanelButton"
                                 Classes="ghost compact"
                                 Width="26" Height="26" Padding="4"
@@ -420,7 +345,7 @@
                     <Grid Grid.Row="2" x:Name="PanelFooter"
                           IsVisible="False" Margin="0,2,0,0">
                         <Button x:Name="ClearCompletedButton" Content="清除已完成"
-                                Classes="ghost compact" FontSize="12"
+                                Classes="ghost compact" FontSize="{DynamicResource FontSizeLabel}"
                                 HorizontalAlignment="Right"
                                 Click="ClearCompletedPanel"/>
                     </Grid>

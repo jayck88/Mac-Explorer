@@ -1095,7 +1095,6 @@ public partial class FileListView : UserControl
         var editor = new TextBox
         {
             Text = entry.Name,
-            FontSize = label.FontSize,
             Margin = label.Margin,
             HorizontalAlignment = isGridIconLabel
                 ? global::Avalonia.Layout.HorizontalAlignment.Center
@@ -1105,9 +1104,9 @@ public partial class FileListView : UserControl
             TextAlignment = isGridIconLabel ? TextAlignment.Center : TextAlignment.Left,
             MinWidth = isGridIconLabel ? 0 : 72,
             MinHeight = 0,
-            Height = 22,
             Width = editorWidth
         };
+        AppTypography.BindFontSize(editor, isGridIconLabel ? AppTypography.Caption : AppTypography.Body);
         editor.Classes.Add("inline-rename-editor");
         if (parent is Grid)
         {
@@ -1295,15 +1294,14 @@ public partial class FileListView : UserControl
                             HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center
                         });
                     }
-                    catch { btnContent.Children.Add(new TextBlock { Text = qa.Label, FontSize = 11, HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center }); }
+                    catch { btnContent.Children.Add(AppTypography.BindFontSize(new TextBlock { Text = qa.Label, HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center }, AppTypography.Caption)); }
                 }
-                btnContent.Children.Add(new TextBlock
+                btnContent.Children.Add(AppTypography.BindFontSize(new TextBlock
                 {
                     Text = qa.Label,
-                    FontSize = 10,
                     Foreground = new SolidColorBrush(Color.Parse("#636366")),
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center
-                });
+                }, AppTypography.Meta));
 
                 var btn = new Button
                 {

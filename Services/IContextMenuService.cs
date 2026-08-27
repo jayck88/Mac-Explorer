@@ -9,6 +9,7 @@ public interface IContextMenuService
     Task<IReadOnlyList<ContextMenuAction>> GetTrashFileContextMenuActionsAsync(FileSystemEntry entry);
     Task<IReadOnlyList<ContextMenuAction>> GetTrashBackgroundContextMenuActionsAsync();
     Task<IReadOnlyList<RegisteredApp>> GetApplicationsForFileAsync(string filePath);
+    Task<string?> GetDefaultApplicationIconBase64Async(string filePath);
     Task<IReadOnlyList<ContextMenuAction>> GetOpenWithActionsAsync(string filePath);
     Task<IReadOnlyList<ContextMenuAction>> GetTopLevelOpenWithActionsAsync(string path);
     bool IsAppInstalled(string bundleIdentifier);

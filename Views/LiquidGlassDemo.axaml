@@ -6,40 +6,39 @@
 
     <UserControl.Styles>
         <Style Selector="TextBlock.title">
-            <Setter Property="FontSize" Value="28"/>
-            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeDisplay}"/>
+            <Setter Property="FontWeight" Value="{StaticResource FontWeightBold}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="TextBlock.subtitle">
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.glass-btn">
             <Setter Property="Background" Value="#14000000"/>
-            <Setter Property="Foreground" Value="#1C1C1E"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
             <Setter Property="Padding" Value="28,10"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+            <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
             <Setter Property="BorderThickness" Value="0"/>
         </Style>
         <Style Selector="Button.glass-btn:pointerover">
-            <Setter Property="Background" Value="#20000000"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
         <Style Selector="Button.glass-btn:pressed">
-            <Setter Property="Background" Value="#0A000000"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
         </Style>
         <Style Selector="Button.glass-btn-cancel">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#8E8E93"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
             <Setter Property="Padding" Value="28,10"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
             <Setter Property="BorderThickness" Value="0"/>
         </Style>
         <Style Selector="Button.glass-btn-cancel:pointerover">
-            <Setter Property="Background" Value="#0C000000"/>
-            <Setter Property="Foreground" Value="#1C1C1E"/>
+            <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         </Style>
     </UserControl.Styles>
 
@@ -104,7 +103,7 @@
                     <TextBlock Classes="subtitle" Text="Apple WWDC25 inspired material"
                                HorizontalAlignment="Center"/>
                     <TextBlock Text="Soft lensing · Uniform edge reflections&#x0a;High transparency · No hard borders"
-                               TextAlignment="Center" FontSize="12" Foreground="#8E8E93"
+                               TextAlignment="Center" FontSize="{DynamicResource FontSizeLabel}" Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap" HorizontalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" Spacing="14"
                                 HorizontalAlignment="Center" Margin="0,8,0,0">

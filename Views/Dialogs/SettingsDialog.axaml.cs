@@ -23,6 +23,8 @@ public partial class SettingsDialog : DialogWindow
     private readonly IDefaultAppService _defaultAppService;
     private readonly ISettingsService _settingsService;
     private readonly IThemeService _themeService;
+    private readonly ITypographyService _typographyService;
+    private readonly IInteractionStyleService _interactionStyleService;
     private readonly IOpenWithAppService _openWithService;
     private readonly IAppUpdateService _appUpdateService;
     private readonly Dictionary<string, ToggleSwitch> _sidebarToggles = new(StringComparer.Ordinal);
@@ -32,8 +34,11 @@ public partial class SettingsDialog : DialogWindow
     private readonly CancellationTokenSource _updateCancellation = new();
     private UpdateState _updateState = UpdateState.Idle;
     private bool _initializing = true;
+    private bool _updatingInteractionStyleSettings;
     private bool _installedAppsLoaded;
     private int _installedAppsRenderVersion;
+    private InteractionThemeVariant _editingInteractionTheme;
+    private InteractionStyleToken _selectedInteractionToken = InteractionStyleToken.Hover;
 
     private FileListViewModel? ViewModel => DataContext as FileListViewModel;
 
@@ -42,8 +47,10 @@ public partial class SettingsDialog : DialogWindow
             App.Services.GetRequiredService<IDefaultAppService>(),
             App.Services.GetRequiredService<ISettingsService>(),
             App.Services.GetRequiredService<IThemeService>(),
+            App.Services.GetRequiredService<ITypographyService>(),
             App.Services.GetRequiredService<IOpenWithAppService>(),
-            App.Services.GetRequiredService<IAppUpdateService>())
+            App.Services.GetRequiredService<IAppUpdateService>(),
+            App.Services.GetRequiredService<IInteractionStyleService>())
     {
     }
 
@@ -51,13 +58,17 @@ public partial class SettingsDialog : DialogWindow
         IDefaultAppService defaultAppService,
         ISettingsService settingsService,
         IThemeService themeService,
+        ITypographyService typographyService,
         IOpenWithAppService openWithService,
-        IAppUpdateService appUpdateService)
+        IAppUpdateService appUpdateService,
+        IInteractionStyleService? interactionStyleService = null)
     {
         InitializeComponent();
         _defaultAppService = defaultAppService;
         _settingsService = settingsService;
         _themeService = themeService;
+        _typographyService = typographyService;
+        _interactionStyleService = interactionStyleService ?? new Services.Impl.InteractionStyleService(settingsService);
         _openWithService = openWithService;
         _appUpdateService = appUpdateService;
         Opened += OnOpened;
@@ -74,9 +85,12 @@ public partial class SettingsDialog : DialogWindow
 
     private void LoadSettings()
     {
+        _initializing = true;
+        _interactionStyleService.Initialize();
+        LoadInteractionStyleSettings();
+
         if (ViewModel == null) return;
 
-        _initializing = true;
         DefaultManagerToggle.IsChecked = _defaultAppService.IsDefaultFolderHandler();
         AiAnalysisToggle.IsChecked = ViewModel.IsAiAnalysisEnabled;
         HideSystemFilesToggle.IsChecked = ViewModel.HideSystemFiles;
@@ -94,6 +108,12 @@ public partial class SettingsDialog : DialogWindow
 
         var themeMode = _settingsService.Get("theme_mode", "system");
         ThemeModeCombo.SelectedIndex = themeMode switch { "light" => 1, "dark" => 2, _ => 0 };
+        TypographyPresetCombo.SelectedIndex = _typographyService.CurrentPreset switch
+        {
+            FontSizePreset.Small => 0,
+            FontSizePreset.Large => 2,
+            _ => 1
+        };
         VibrancyToggle.IsChecked = _settingsService.Get("vibrancy_enabled", true);
         VibrancySlider.Value = _settingsService.Get("vibrancy_alpha", 0.85);
         VibrancySlider.IsEnabled = VibrancyToggle.IsChecked == true;
@@ -151,6 +171,141 @@ public partial class SettingsDialog : DialogWindow
         if (_initializing || ThemeModeCombo.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
         _settingsService.Set("theme_mode", mode);
         _themeService.SetThemeMode(mode);
+        _interactionStyleService.ApplyCurrentTheme();
+    }
+
+    private void OnTypographyPresetChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || TypographyPresetCombo.SelectedItem is not ComboBoxItem { Tag: string preset })
+            return;
+
+        _typographyService.SetPreset(preset switch
+        {
+            "small" => FontSizePreset.Small,
+            "large" => FontSizePreset.Large,
+            _ => FontSizePreset.Standard
+        });
+    }
+
+    private void LoadInteractionStyleSettings()
+    {
+        _editingInteractionTheme = _interactionStyleService.CurrentTheme;
+        _updatingInteractionStyleSettings = true;
+        InteractionThemeVariantCombo.SelectedIndex = _editingInteractionTheme == InteractionThemeVariant.Dark ? 1 : 0;
+        _updatingInteractionStyleSettings = false;
+        RefreshInteractionColorEditor();
+        InteractionStyleStatusText.IsVisible = false;
+    }
+
+    private void OnInteractionThemeVariantChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || _updatingInteractionStyleSettings
+            || InteractionThemeVariantCombo.SelectedItem is not ComboBoxItem { Tag: string theme })
+            return;
+
+        _editingInteractionTheme = theme == "dark" ? InteractionThemeVariant.Dark : InteractionThemeVariant.Light;
+        RefreshInteractionColorEditor();
+    }
+
+    private void OnInteractionTokenSelected(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag } || !TryGetInteractionToken(tag, out var token))
+            return;
+
+        _selectedInteractionToken = token;
+        RefreshInteractionColorEditor();
+    }
+
+    private void OnInteractionPaletteColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string color }
+            || !_interactionStyleService.TrySetColor(_selectedInteractionToken, _editingInteractionTheme, color))
+            return;
+
+        InteractionStyleStatusText.IsVisible = false;
+        RefreshInteractionColorEditor();
+    }
+
+    private void OnInteractionCustomColorChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_initializing || _updatingInteractionStyleSettings)
+            return;
+
+        if (_interactionStyleService.TrySetColor(
+                _selectedInteractionToken,
+                _editingInteractionTheme,
+                InteractionCustomColorBox.Text ?? string.Empty))
+        {
+            InteractionStyleStatusText.IsVisible = false;
+            RefreshInteractionColorEditor();
+            return;
+        }
+
+        InteractionStyleStatusText.Text = "颜色格式无效，请使用 #RRGGBB 或 #AARRGGBB。";
+        InteractionStyleStatusText.IsVisible = true;
+    }
+
+    private void OnResetInteractionColors(object? sender, RoutedEventArgs e)
+    {
+        _interactionStyleService.ResetColors(_editingInteractionTheme);
+        InteractionStyleStatusText.IsVisible = false;
+        RefreshInteractionColorEditor();
+    }
+
+    private void RefreshInteractionColorEditor()
+    {
+        _updatingInteractionStyleSettings = true;
+        try
+        {
+            UpdateInteractionColorRow(InteractionStyleToken.Hover, InteractionHoverColorPreview, InteractionHoverColorValue, InteractionHoverColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.Pressed, InteractionPressedColorPreview, InteractionPressedColorValue, InteractionPressedColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.Selected, InteractionSelectedColorPreview, InteractionSelectedColorValue, InteractionSelectedColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.SelectedHover, InteractionSelectedHoverColorPreview, InteractionSelectedHoverColorValue, InteractionSelectedHoverColorButton);
+            UpdateInteractionColorRow(InteractionStyleToken.TextHighlight, InteractionTextHighlightColorPreview, InteractionTextHighlightColorValue, InteractionTextHighlightColorButton);
+            InteractionSelectedTokenText.Text = $"正在设置：{GetInteractionTokenName(_selectedInteractionToken)}（{GetInteractionThemeName(_editingInteractionTheme)}）";
+            InteractionCustomColorBox.Text = _interactionStyleService.GetColor(_selectedInteractionToken, _editingInteractionTheme);
+        }
+        finally
+        {
+            _updatingInteractionStyleSettings = false;
+        }
+    }
+
+    private void UpdateInteractionColorRow(InteractionStyleToken token, Border preview, TextBlock value, Button button)
+    {
+        var color = _interactionStyleService.GetColor(token, _editingInteractionTheme);
+        preview.Background = new SolidColorBrush(Color.Parse(color));
+        value.Text = color;
+        button.Classes.Set("selected", token == _selectedInteractionToken);
+    }
+
+    private static string GetInteractionTokenName(InteractionStyleToken token) => token switch
+    {
+        InteractionStyleToken.Hover => "悬停",
+        InteractionStyleToken.Pressed => "按下",
+        InteractionStyleToken.Selected => "选中、已勾选或焦点",
+        InteractionStyleToken.SelectedHover => "选中时悬停",
+        InteractionStyleToken.TextHighlight => "文本高亮",
+        _ => throw new ArgumentOutOfRangeException(nameof(token), token, null)
+    };
+
+    private static string GetInteractionThemeName(InteractionThemeVariant theme) => theme == InteractionThemeVariant.Dark
+        ? "深色主题"
+        : "浅色主题";
+
+    private static bool TryGetInteractionToken(string value, out InteractionStyleToken token)
+    {
+        token = value switch
+        {
+            "hover" => InteractionStyleToken.Hover,
+            "pressed" => InteractionStyleToken.Pressed,
+            "selected" => InteractionStyleToken.Selected,
+            "selected-hover" => InteractionStyleToken.SelectedHover,
+            "text-highlight" => InteractionStyleToken.TextHighlight,
+            _ => default
+        };
+
+        return value is "hover" or "pressed" or "selected" or "selected-hover" or "text-highlight";
     }
 
     private void OnVibrancyChanged(object? sender, RoutedEventArgs e)
@@ -226,14 +381,13 @@ public partial class SettingsDialog : DialogWindow
         }
 
         if (apps.Count == 0)
-            InstalledAppsPanel.Children.Add(new TextBlock
+            InstalledAppsPanel.Children.Add(AppTypography.BindFontSize(new TextBlock
             {
                 Text = _installedApps.Count == 0 ? "未找到已安装的应用" : "没有匹配的应用",
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                 Margin = new Thickness(0, 12),
-                FontSize = 12,
                 Foreground = new SolidColorBrush(Color.Parse("#8E8E93"))
-            });
+            }, AppTypography.Label));
     }
 
     private async Task LoadInstalledAppIconAsync(AppListItem app, Button row, int renderVersion)
@@ -284,13 +438,12 @@ public partial class SettingsDialog : DialogWindow
             ConfiguredAppsPanel.Children.Add(new Border
             {
                 Classes = { "settings-row" },
-                Child = new TextBlock
+                Child = AppTypography.BindFontSize(new TextBlock
                 {
                     Text = "尚未配置任何应用",
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
-                    FontSize = 12,
                     Foreground = new SolidColorBrush(Color.Parse("#8E8E93"))
-                }
+                }, AppTypography.Label)
             });
             return;
         }
@@ -325,7 +478,7 @@ public partial class SettingsDialog : DialogWindow
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                 Children =
                 {
-                    new TextBlock { Text = "显示在根目录", FontSize = 11, Opacity = 0.6, VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center },
+                    AppTypography.BindFontSize(new TextBlock { Text = "显示在根目录", Opacity = 0.6, VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center }, AppTypography.Caption),
                     toggle,
                     delete
                 }
@@ -371,7 +524,7 @@ public partial class SettingsDialog : DialogWindow
             panel.Children.Add(new Image { Source = bitmap, Width = iconSize, Height = iconSize, Stretch = Stretch.Uniform });
         else
             panel.Children.Add(new PathIcon { Data = Geometry.Parse(Assets.Icons.CodeEditor), Width = iconSize, Height = iconSize });
-        panel.Children.Add(new TextBlock { Text = label, FontSize = 13, VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center });
+        panel.Children.Add(AppTypography.BindFontSize(new TextBlock { Text = label, VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center }, AppTypography.Body));
         return panel;
     }
 

@@ -16,9 +16,9 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
         <Style Selector="TextBlock.label">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+            <Setter Property="FontWeight" Value="{StaticResource FontWeightMedium}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
     </Window.Styles>
@@ -27,8 +27,8 @@
         <!-- Saved servers list -->
         <Border Grid.Row="0" IsVisible="{Binding HasSavedServers}" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="已保存的服务器" FontSize="11" FontWeight="SemiBold"
-                           Foreground="{DynamicResource ColorTextTertiary}" Margin="0,0,0,6"/>
+                <TextBlock Text="已保存的服务器" FontSize="{DynamicResource FontSizeCaption}" FontWeight="{StaticResource FontWeightSemibold}"
+                           Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6"/>
                 <ListBox x:Name="SavedServersList" MaxHeight="120"
                          ItemsSource="{Binding SavedServers}"
                          SelectionChanged="OnSavedServerSelected">
@@ -38,8 +38,8 @@
                                 <PathIcon Data="M20,18C20,19.1 20.9,20 22,20V20H24V20C24,18.34 22.66,17 21,17H20V18M14,20C14,21.1 14.9,22 16,22V22H18V22C18,20.34 16.66,19 15,19H14V20M8,22C8,23.1 8.9,24 10,24V24H12V24C12,22.34 10.66,21 9,21H8V22M20,12C20,13.1 20.9,14 22,14V14H24V14C24,12.34 22.66,11 21,11H20V12Z"
                                           Width="16" Height="16" Foreground="{DynamicResource AccentBrush}"/>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding DisplayName}" FontSize="13"/>
-                                    <TextBlock Text="{Binding ConnectionString}" FontSize="10" Opacity="0.6"/>
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource FontSizeBody}"/>
+                                    <TextBlock Text="{Binding ConnectionString}" FontSize="{DynamicResource FontSizeMeta}" Opacity="0.6"/>
                                 </StackPanel>
                             </StackPanel>
                         </DataTemplate>

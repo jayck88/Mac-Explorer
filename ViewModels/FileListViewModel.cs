@@ -11,6 +11,7 @@ using MacExplorer.Models;
 using MacExplorer.Services;
 using MacExplorer.Services.Impl;
 using Microsoft.Extensions.Logging;
+using AppIcons = MacExplorer.Assets.Icons;
 
 namespace MacExplorer.ViewModels;
 
@@ -180,6 +181,16 @@ public partial class FileListViewModel : ObservableObject, IDisposable
     public bool CanGoForward => _navigation.CanGoForward;
     public bool IsHomePage => _navigation.IsHomePage;
     public ObservableCollection<BreadcrumbSegment> Breadcrumbs => _navigation.Breadcrumbs;
+    public string CurrentLocationTitle
+    {
+        get
+        {
+            var breadcrumbTitle = Breadcrumbs.LastOrDefault()?.DisplayName;
+            return !string.IsNullOrWhiteSpace(breadcrumbTitle)
+                ? breadcrumbTitle
+                : IsHomePage ? "首页" : "Mac Explorer";
+        }
+    }
     public string HomeDirectory => _fileService.HomeDirectory;
 
     public string? GetRestorableDirectoryPath()
@@ -833,6 +844,13 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             StatusText = string.Empty;
             OnPropertyChanged(nameof(IsTagView));
             OnPropertyChanged(nameof(CurrentTag));
+        }
+
+        if (e.PropertyName is nameof(NavigationViewModel.CurrentPath)
+            or nameof(NavigationViewModel.IsHomePage)
+            or nameof(NavigationViewModel.Breadcrumbs))
+        {
+            OnPropertyChanged(nameof(CurrentLocationTitle));
         }
 
         if (e.PropertyName is nameof(NavigationViewModel.CurrentPath)
@@ -1925,7 +1943,17 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         var isRemote = VirtualPath.IsRemotePath(entry.FullPath);
 
         // Open
-        actions.Add(new ContextMenuAction { Label = "打开", IconSvg = Icons.Open, Execute = () => OpenEntryCommand.ExecuteAsync(entry) });
+        var opensInsideMacExplorer = entry.IsDirectory
+            || _archiveService?.IsArchiveFile(entry.FullPath) == true;
+        actions.Add(new ContextMenuAction
+        {
+            Label = "打开",
+            IconSvg = Icons.Open,
+            LoadIconBase64Async = !isRemote && !opensInsideMacExplorer && _contextMenuService != null
+                ? () => _contextMenuService.GetDefaultApplicationIconBase64Async(entry.FullPath)
+                : null,
+            Execute = () => OpenEntryCommand.ExecuteAsync(entry)
+        });
 
         if (_contextMenuService != null && includeDynamicActions)
         {
@@ -1937,7 +1965,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 actions.Add(new ContextMenuAction
                 {
                     Label = "用…打开",
-                    IconSvg = Icons.Open,
+                    IconSvg = AppIcons.Apps,
                     SubItems = openWith
                 });
             }
@@ -1947,7 +1975,7 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             actions.Add(new ContextMenuAction
             {
                 Label = "用…打开",
-                IconSvg = Icons.Open,
+                IconSvg = AppIcons.Apps,
                 SubItems =
                 [
                     new ContextMenuAction { Label = "正在加载…", IsEnabled = false }
@@ -1994,9 +2022,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
         if (!isRemote)
         {
             if (_archiveService?.IsArchiveFile(entry.FullPath) == true)
-                actions.Add(new ContextMenuAction { Label = "解压到此处", IconSvg = Icons.Folder, Execute = () => { ExtractHere(entry); return Task.CompletedTask; } });
+                actions.Add(BuildExtractContextMenuAction(entry));
             else
-                actions.Add(new ContextMenuAction { Label = "压缩", IconSvg = Icons.Folder, Execute = () => { ShowCompressDialog(); return Task.CompletedTask; } });
+                actions.Add(new ContextMenuAction { Label = "压缩", IconSvg = AppIcons.Compress, Execute = () => { ShowCompressDialog(); return Task.CompletedTask; } });
         }
 
         actions.Add(ContextMenuAction.Separator);
@@ -2014,7 +2042,15 @@ public partial class FileListViewModel : ObservableObject, IDisposable
             actions.Add(ContextMenuAction.Separator);
             if (_launcherService != null)
             {
-                actions.Add(new ContextMenuAction { Label = "在 Finder 中显示", IconSvg = Icons.Finder, Execute = () => _launcherService.RevealInFinderAsync(entry.FullPath) });
+                actions.Add(new ContextMenuAction
+                {
+                    Label = "在 Finder 中显示",
+                    IconSvg = Icons.Finder,
+                    LoadIconBase64Async = _openWithAppService == null
+                        ? null
+                        : () => _openWithAppService.GetAppIconBase64ByPathAsync("/System/Library/CoreServices/Finder.app"),
+                    Execute = () => _launcherService.RevealInFinderAsync(entry.FullPath)
+                });
                 var terminalPath = entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath) ?? entry.FullPath;
                 actions.Add(new ContextMenuAction { Label = "在终端中打开", IconSvg = Icons.Terminal, Execute = () => _launcherService.OpenInTerminalAsync(terminalPath) });
             }
@@ -2240,6 +2276,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     IconSvg = action.IconSvg,
                     ShortcutText = action.ShortcutText,
                     IsEnabled = action.IsEnabled,
+                    IconBase64 = action.IconBase64,
+                    LoadIconBase64Async = action.LoadIconBase64Async,
                     Execute = () => OpenEntryCommand.ExecuteAsync(entry)
                 });
             }
@@ -2333,14 +2371,9 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                     }
                 });
             }
-            else if (action.Label == "解压到此处")
+            else if (action.Label == "解压")
             {
-                result.Add(new ContextMenuAction
-                {
-                    Label = action.Label,
-                    IconSvg = action.IconSvg,
-                    Execute = () => { ExtractHere(entry); return Task.CompletedTask; }
-                });
+                result.Add(BuildExtractContextMenuAction(entry));
             }
             else if (action.Label == "压缩")
             {
@@ -3052,9 +3085,53 @@ public partial class FileListViewModel : ObservableObject, IDisposable
 
     // ── Archive Operations ──
 
+    private ContextMenuAction BuildExtractContextMenuAction(FileSystemEntry entry)
+    {
+        var archiveName = ArchiveExtractionPathHelper.GetArchiveFolderName(entry.FullPath);
+        return new ContextMenuAction
+        {
+            Label = "解压",
+            IconSvg = AppIcons.Compress,
+            SubItems =
+            [
+                new ContextMenuAction
+                {
+                    Label = "解压到当前文件夹",
+                    IconSvg = AppIcons.Folder,
+                    Execute = () =>
+                    {
+                        ExtractHere(entry);
+                        return Task.CompletedTask;
+                    }
+                },
+                new ContextMenuAction
+                {
+                    Label = $"解压到 {archiveName}",
+                    IconSvg = AppIcons.NewFolder,
+                    Execute = () =>
+                    {
+                        ExtractToNamedFolder(entry);
+                        return Task.CompletedTask;
+                    }
+                }
+            ]
+        };
+    }
+
     public void ExtractHere(FileSystemEntry entry)
     {
         _ = _archive.ExtractHereAsync(
+            entry,
+            _navigation.CurrentPath,
+            msg => StatusText = msg,
+            async () => await RefreshAsync(),
+            PromptPasswordAsync
+        );
+    }
+
+    public void ExtractToNamedFolder(FileSystemEntry entry)
+    {
+        _ = _archive.ExtractToNamedFolderAsync(
             entry,
             _navigation.CurrentPath,
             msg => StatusText = msg,

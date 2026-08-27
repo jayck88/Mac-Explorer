@@ -4,7 +4,7 @@
              xmlns:chrome="using:Avalonia.Controls.Chrome"
              x:Class="MacExplorer.Controls.WindowTitleBar"
              x:Name="TitleBarRoot"
-             Height="40">
+             MinHeight="40">
     <UserControl.Styles>
         <Style Selector="Button.window-control">
             <Setter Property="Width" Value="20"/>
@@ -30,17 +30,17 @@
             <Setter Property="RenderTransform" Value="scale(0.92)"/>
         </Style>
         <Style Selector="Button.window-control:disabled">
-            <Setter Property="Opacity" Value="0.35"/>
+            <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
             <Setter Property="RenderTransform" Value="scale(1)"/>
         </Style>
         <Style Selector="Button.window-control:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
         <Style Selector="TextBlock.window-control-symbol">
             <Setter Property="Opacity" Value="0"/>
-            <Setter Property="FontSize" Value="9"/>
-            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSizeIconGlyph}"/>
+            <Setter Property="FontWeight" Value="{StaticResource FontWeightBold}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="IsHitTestVisible" Value="False"/>
@@ -58,51 +58,55 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="Auto,*" Background="Transparent"
-          chrome:WindowDecorationProperties.ElementRole="TitleBar">
-        <Border x:Name="WindowControlsReserve" Grid.Column="0" Padding="14,0,12,0"
-                VerticalAlignment="Stretch"
-                chrome:WindowDecorationProperties.ElementRole="User">
-            <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="6"
-                        VerticalAlignment="Center"
-                        chrome:WindowDecorationProperties.ElementRole="User">
-                <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
-                        AutomationProperties.Name="关闭窗口">
-                    <Grid Width="13.5" Height="13.5">
-                        <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowCloseBrush}"/>
-                        <TextBlock Classes="window-control-symbol" Text="×" Foreground="#5C1A17" Margin="0,-1,0,0"/>
-                    </Grid>
-                </Button>
-                <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
-                        AutomationProperties.Name="最小化窗口">
-                    <Grid Width="13.5" Height="13.5">
-                        <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMinimizeBrush}"/>
-                        <TextBlock Classes="window-control-symbol" Text="−" Foreground="#654200" Margin="0,-2,0,0"/>
-                    </Grid>
-                </Button>
-                <Button x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
-                        AutomationProperties.Name="进入全屏">
-                    <Grid Width="13.5" Height="13.5">
-                        <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMaximizeBrush}"/>
-                        <TextBlock Classes="window-control-symbol" Text="+" Foreground="#0C551C" Margin="0,-1,0,0"/>
-                    </Grid>
-                </Button>
-            </StackPanel>
-        </Border>
+    <Grid RowDefinitions="40,Auto" Background="Transparent">
+        <Grid x:Name="TitleRow" Grid.Row="0" Background="Transparent"
+              chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <Border x:Name="WindowControlsReserve" Padding="14,0,12,0"
+                    HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                    chrome:WindowDecorationProperties.ElementRole="User">
+                <StackPanel Classes="window-controls" Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center"
+                            chrome:WindowDecorationProperties.ElementRole="User">
+                    <Button x:Name="CloseButton" Classes="window-control" ToolTip.Tip="关闭"
+                            AutomationProperties.Name="关闭窗口">
+                        <Grid Width="13.5" Height="13.5">
+                            <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowCloseBrush}"/>
+                            <TextBlock Classes="window-control-symbol" Text="×" Foreground="#5C1A17" Margin="0,-1,0,0"/>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="MinimizeButton" Classes="window-control" ToolTip.Tip="最小化"
+                            AutomationProperties.Name="最小化窗口">
+                        <Grid Width="13.5" Height="13.5">
+                            <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMinimizeBrush}"/>
+                            <TextBlock Classes="window-control-symbol" Text="−" Foreground="#654200" Margin="0,-2,0,0"/>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="FullScreenButton" Classes="window-control" ToolTip.Tip="进入全屏"
+                            AutomationProperties.Name="进入全屏">
+                        <Grid Width="13.5" Height="13.5">
+                            <Ellipse Classes="traffic-light" Fill="{DynamicResource WindowMaximizeBrush}"/>
+                            <TextBlock Classes="window-control-symbol" Text="+" Foreground="#0C551C" Margin="0,-1,0,0"/>
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Border>
 
-        <Border x:Name="DragRegion" Grid.Column="1" Background="Transparent"
+            <TextBlock x:Name="TitleText" Text="{Binding Title, ElementName=TitleBarRoot}"
+                       Margin="104,0"
+                       HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                       TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                       FontSize="{DynamicResource FontSizeBody}" FontWeight="{StaticResource FontWeightSemibold}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       IsHitTestVisible="False"/>
+        </Grid>
+
+        <Border x:Name="TitleBarContentRow" Grid.Row="1" Height="40"
+                Background="Transparent" IsVisible="False"
                 chrome:WindowDecorationProperties.ElementRole="TitleBar">
-            <Panel chrome:WindowDecorationProperties.ElementRole="TitleBar">
-                <TextBlock x:Name="TitleText" Text="{Binding Title, ElementName=TitleBarRoot}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           FontSize="{StaticResource FontSizeSm}" FontWeight="Medium"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           IsHitTestVisible="False"/>
-                <ContentPresenter Content="{Binding #TitleBarRoot.TitleBarContent}"
-                                  HorizontalAlignment="Stretch"
-                                  VerticalAlignment="Center"
-                                  chrome:WindowDecorationProperties.ElementRole="TitleBar"/>
-            </Panel>
+            <ContentPresenter Content="{Binding #TitleBarRoot.TitleBarContent}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              chrome:WindowDecorationProperties.ElementRole="TitleBar"/>
         </Border>
     </Grid>
 </UserControl>

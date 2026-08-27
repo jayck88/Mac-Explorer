@@ -36,7 +36,7 @@
                                       Classes="sidebar-icon" Foreground="#54A3F7"/>
                             <TextBlock Text="{Binding UserName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -50,7 +50,7 @@
                                       Classes="sidebar-icon" Foreground="#54A3F7"/>
                             <TextBlock Text="{Binding DesktopName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -64,7 +64,7 @@
                                       Classes="sidebar-icon" Foreground="#3B82F6"/>
                             <TextBlock Text="{Binding DocumentsName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -78,7 +78,7 @@
                                       Classes="sidebar-icon" Foreground="#22C55E"/>
                             <TextBlock Text="{Binding DownloadsName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -92,7 +92,7 @@
                                       Classes="sidebar-icon" Foreground="#E8912D"/>
                             <TextBlock Text="{Binding PicturesName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -106,7 +106,7 @@
                                       Classes="sidebar-icon" Foreground="#EC4899"/>
                             <TextBlock Text="{Binding MusicName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -125,7 +125,7 @@
                                                       Classes="sidebar-icon" Foreground="#F59E0B"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
-                                                       VerticalAlignment="Center" FontSize="13"
+                                                       VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                         <Button Grid.Column="1"
@@ -136,7 +136,7 @@
                                             Click="UnpinFolder">
                                             <PathIcon Data="{x:Static icons:Icons.Pin}"
                                                       Width="12" Height="12"
-                                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                                      Foreground="{DynamicResource TextMutedBrush}"/>
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -157,7 +157,7 @@
                                       Classes="sidebar-icon" Foreground="#22D3EE"/>
                             <TextBlock Text="{Binding VolumeName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -176,7 +176,7 @@
                                                       Classes="sidebar-icon" Foreground="#F97316"/>
                                             <TextBlock Text="{Binding DisplayName}"
                                                        Margin="8,0,0,0"
-                                                       VerticalAlignment="Center" FontSize="13"/>
+                                                       VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <Button Grid.Column="1"
                                                 Classes="ghost sidebar-item-action"
@@ -186,7 +186,7 @@
                                                 Click="EjectVolume">
                                             <PathIcon Data="{x:Static icons:Icons.Eject}"
                                                       Width="12" Height="12"
-                                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                                      Foreground="{DynamicResource TextMutedBrush}"/>
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -204,7 +204,7 @@
                                       Classes="sidebar-icon" Foreground="#818CF8"/>
                             <TextBlock Text="{Binding ApplicationsName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -218,7 +218,7 @@
                                       Classes="sidebar-icon" Foreground="#A78BFA"/>
                             <TextBlock Text="{Binding TrashName}"
                                        Margin="8,0,0,0"
-                                       VerticalAlignment="Center" FontSize="13"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -228,8 +228,8 @@
                           x:Name="RemoteServersHeader"
                           IsVisible="False">
                         <TextBlock Grid.Column="0" Text="远程服务器"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Classes="sidebar-section-title"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    Padding="18,4,0,4"/>
                     </Grid>
 
@@ -246,7 +246,7 @@
                                               VerticalAlignment="Center">
                                             <Ellipse Fill="{DynamicResource ColorSuccess}"
                                                      IsVisible="{Binding IsConnected}"/>
-                                            <Ellipse Fill="{DynamicResource ColorTextDisabled}"
+                                            <Ellipse Fill="{DynamicResource TextDisabledBrush}"
                                                      IsVisible="{Binding !IsConnected}"/>
                                         </Grid>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Background="Transparent"
@@ -255,11 +255,11 @@
                                                       Classes="sidebar-icon" Foreground="#06B6D4"/>
                                             <StackPanel Margin="6,0,0,0">
                                                 <TextBlock Text="{Binding DisplayName}"
-                                                           VerticalAlignment="Center" FontSize="13"
+                                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock Text="{Binding StatusText}"
-                                                           FontSize="10"
-                                                           Foreground="{DynamicResource ColorTextTertiary}"/>
+                                                           Classes="sidebar-secondary-text"
+                                                           Foreground="{DynamicResource TextMutedBrush}"/>
                                             </StackPanel>
                                         </StackPanel>
                                         <Button Grid.Column="2"
@@ -270,7 +270,7 @@
                                                 Click="OnDisconnectRemoteServer">
                                             <PathIcon Data="{x:Static icons:Icons.Delete}"
                                                       Width="12" Height="12"
-                                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                                      Foreground="{DynamicResource TextMutedBrush}"/>
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -280,16 +280,19 @@
 
                     <!-- ═══ AI 智能 AI ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto"
+                          x:Name="AiSectionHeader"
+                          Classes="sidebar-section-header"
                           Margin="0,8,0,2"
                           PointerPressed="OnToggleAiCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="AI 智能"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Classes="sidebar-section-title"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    Padding="18,4,0,4"/>
                         <PathIcon Grid.Column="2" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Classes="sidebar-header-reveal"
                                   Width="10" Height="10"
-                                  Foreground="{DynamicResource ColorTextQuaternary}"
+                                  Foreground="{DynamicResource TextSubtleBrush}"
                                   Margin="0,4,12,4"
                                   x:Name="AiChevron"/>
                     </Grid>
@@ -306,7 +309,7 @@
                                 <PathIcon Data="{x:Static icons:Icons.People}"
                                           Classes="sidebar-icon" Foreground="#EC4899"/>
                                 <TextBlock Text="人物" Margin="8,0,0,0"
-                                           VerticalAlignment="Center" FontSize="13"/>
+                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
 
@@ -319,7 +322,7 @@
                                 <PathIcon Data="{x:Static icons:Icons.Grid}"
                                           Classes="sidebar-icon" Foreground="#8B5CF6"/>
                                 <TextBlock Text="分类" Margin="8,0,0,0"
-                                           VerticalAlignment="Center" FontSize="13"/>
+                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
 
@@ -332,7 +335,7 @@
                                 <PathIcon Data="{x:Static icons:Icons.Location}"
                                           Classes="sidebar-icon" Foreground="#EF4444"/>
                                 <TextBlock Text="地点" Margin="8,0,0,0"
-                                           VerticalAlignment="Center" FontSize="13"/>
+                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
 
@@ -345,7 +348,7 @@
                                 <PathIcon Data="{x:Static icons:Icons.Calendar}"
                                           Classes="sidebar-icon" Foreground="#F59E0B"/>
                                 <TextBlock Text="日期" Margin="8,0,0,0"
-                                           VerticalAlignment="Center" FontSize="13"/>
+                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
 
@@ -358,37 +361,39 @@
                                 <PathIcon Data="{x:Static icons:Icons.Search}"
                                           Classes="sidebar-icon" Foreground="#3B82F6"/>
                                 <TextBlock Text="文字搜索" Margin="8,0,0,0"
-                                           VerticalAlignment="Center" FontSize="13"/>
+                                           VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
                     <!-- ═══ 收藏夹 Collections ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto"
-                          Margin="0,8,0,2">
+                          x:Name="CollectionsSectionHeader"
+                          Classes="sidebar-section-header"
+                          Margin="0,8,0,2"
+                          PointerPressed="OnToggleCollectionsCollapsed">
                         <TextBlock Grid.Column="0" Text="收藏夹"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Classes="sidebar-section-title"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    Padding="18,4,0,4"
-                                   Cursor="Hand"
-                                   PointerPressed="OnToggleCollectionsCollapsed"/>
+                                   Cursor="Hand"/>
                         <Button Grid.Column="2"
                                 x:Name="AddCollectionBtn"
                                 Classes="ghost sidebar-header-action"
                                 Background="Transparent" BorderThickness="0"
                                 Padding="4" Margin="0,2,6,2"
+                                PointerPressed="OnUnpinPointerPressed"
                                 Click="StartNewCollection"
                                 ToolTip.Tip="新建收藏夹">
                             <PathIcon Data="{x:Static icons:Icons.Plus}"
                                       Width="10" Height="10"
-                                      Foreground="{DynamicResource ColorTextTertiary}"/>
+                                      Foreground="{DynamicResource TextMutedBrush}"/>
                         </Button>
                         <PathIcon Grid.Column="3" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Classes="sidebar-header-reveal"
                                   Width="10" Height="10"
-                                  Foreground="{DynamicResource ColorTextQuaternary}"
+                                  Foreground="{DynamicResource TextSubtleBrush}"
                                   Margin="0,4,12,4"
-                                  Cursor="Hand"
-                                  PointerPressed="OnToggleCollectionsCollapsed"
                                   x:Name="CollChevron"/>
                     </Grid>
 
@@ -396,33 +401,58 @@
                                 x:Name="CollectionsPanel">
 
                         <!-- Collection list -->
-                        <ItemsControl Classes="sidebar-items"
+                        <ItemsControl x:Name="CollectionItems"
+                                      Classes="sidebar-items"
                                       ItemsSource="{Binding Collections}"
                                       IsVisible="{Binding Collections, Converter={StaticResource IsNotEmpty}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:Collection">
-                                    <Border Classes="sidebar-item"
+                                    <Border Classes="sidebar-item collection-row"
                                             Tag="{Binding}"
                                             PointerPressed="OnCollectionPressed">
-                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Background="Transparent">
-                                            <PathIcon Data="{x:Static icons:Icons.CollectionAdd}"
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                              Classes="collection-row-content"
+                                              Background="Transparent"
+                                              VerticalAlignment="Center">
+                                            <PathIcon Data="{x:Static icons:Icons.Folder}"
                                                       Classes="sidebar-icon" Foreground="#F59E0B"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       Classes="collection-name-label"
                                                        Margin="8,0,0,0"
-                                                       VerticalAlignment="Center" FontSize="13"/>
+                                                       VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"/>
+                                            <TextBox Grid.Column="1"
+                                                     Classes="inline-rename-editor collection-name-editor"
+                                                     Tag="{Binding}"
+                                                     IsVisible="False"
+                                                     Margin="8,0,4,0"
+                                                     MinWidth="72"
+                                                     HorizontalAlignment="Left"
+                                                     VerticalAlignment="Center"
+                                                     FontSize="{DynamicResource FontSizeBody}"
+                                                     KeyDown="OnCollectionEditorKeyDown"
+                                                     LostFocus="OnCollectionEditorLostFocus"/>
                                             <Button Grid.Column="2" Tag="{Binding}"
-                                                    Classes="ghost sidebar-item-action"
+                                                    Classes="ghost sidebar-item-action collection-normal-action"
                                                     ToolTip.Tip="重命名"
                                                     PointerPressed="OnUnpinPointerPressed"
                                                     Click="RenameCollection">
                                                 <PathIcon Data="{x:Static icons:Icons.Rename}" Width="12" Height="12"/>
                                             </Button>
                                             <Button Grid.Column="3" Tag="{Binding}"
-                                                    Classes="ghost sidebar-item-action"
+                                                    Classes="ghost sidebar-item-action collection-normal-action"
                                                     ToolTip.Tip="删除"
                                                     PointerPressed="OnUnpinPointerPressed"
                                                     Click="DeleteCollection">
                                                 <PathIcon Data="{x:Static icons:Icons.Delete}" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button Grid.Column="2" Grid.ColumnSpan="2"
+                                                    Classes="ghost sidebar-inline-confirm collection-confirm-action"
+                                                    IsVisible="False"
+                                                    Tag="{Binding}"
+                                                    ToolTip.Tip="确认"
+                                                    PointerPressed="OnUnpinPointerPressed"
+                                                    Click="CommitCollectionEdit">
+                                                <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
                                             </Button>
                                         </Grid>
                                     </Border>
@@ -430,28 +460,52 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- New collection input -->
-                        <Border x:Name="NewCollectionPanel" IsVisible="False" Margin="4,0" Padding="8,3">
-                            <TextBox x:Name="NewCollectionInput"
-                                     Classes="sidebar-rename-input"
-                                     FontSize="13"
-                                     KeyDown="OnNewCollectionKeyDown"
-                                     LostFocus="OnNewCollectionLostFocus"/>
+                        <!-- New collection uses the same complete row as existing items. -->
+                        <Border x:Name="NewCollectionEditorRow"
+                                Classes="sidebar-item collection-row"
+                                IsVisible="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                  Classes="collection-row-content"
+                                  Background="Transparent"
+                                  VerticalAlignment="Center">
+                                <PathIcon Data="{x:Static icons:Icons.CollectionAdd}"
+                                          Classes="sidebar-icon" Foreground="#F59E0B"/>
+                                <TextBox x:Name="NewCollectionInput"
+                                         Grid.Column="1"
+                                         Classes="inline-rename-editor collection-name-editor"
+                                         Margin="8,0,4,0"
+                                         MinWidth="72"
+                                         HorizontalAlignment="Left"
+                                         VerticalAlignment="Center"
+                                         FontSize="{DynamicResource FontSizeBody}"
+                                         KeyDown="OnCollectionEditorKeyDown"
+                                         LostFocus="OnCollectionEditorLostFocus"/>
+                                <Button Grid.Column="2" Grid.ColumnSpan="2"
+                                        Classes="ghost sidebar-inline-confirm collection-confirm-action"
+                                        ToolTip.Tip="确认"
+                                        PointerPressed="OnUnpinPointerPressed"
+                                        Click="CommitCollectionEdit">
+                                    <PathIcon Data="{x:Static icons:Icons.Checkmark}"/>
+                                </Button>
+                            </Grid>
                         </Border>
                     </StackPanel>
 
                     <!-- ═══ 标签 Tags ═══ -->
                     <Grid ColumnDefinitions="Auto,*,Auto"
+                          x:Name="TagsSectionHeader"
+                          Classes="sidebar-section-header"
                           Margin="0,8,0,2"
                           PointerPressed="OnToggleTagsCollapsed"
                           Cursor="Hand">
                         <TextBlock Grid.Column="0" Text="标签"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource ColorTextTertiary}"
+                                   Classes="sidebar-section-title"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    Padding="18,4,0,4"/>
                         <PathIcon Grid.Column="2" Data="{x:Static icons:Icons.ChevronRight}"
+                                  Classes="sidebar-header-reveal"
                                   Width="10" Height="10"
-                                  Foreground="{DynamicResource ColorTextQuaternary}"
+                                  Foreground="{DynamicResource TextSubtleBrush}"
                                   Margin="0,4,12,4"
                                   x:Name="TagsChevron"/>
                     </Grid>
@@ -479,7 +533,7 @@
                                         </Grid>
                                         <TextBlock Grid.Column="1" Text="{Binding Name}"
                                                    Margin="8,0,0,0"
-                                                   VerticalAlignment="Center" FontSize="13"
+                                                   VerticalAlignment="Center" FontSize="{DynamicResource FontSizeBodyLarge}"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </Grid>
                                 </Border>

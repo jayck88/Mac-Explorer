@@ -11,6 +11,46 @@ namespace MacExplorer.Tests;
 public class AppWindowTests
 {
     [AvaloniaFact]
+    public void TitleBarWithoutContentUsesSingleRowAndShowsTitle()
+    {
+        var window = new AppWindow { Width = 480, Height = 320, Title = "设置" };
+        window.Show();
+        var titleBar = window.GetVisualDescendants().OfType<WindowTitleBar>().Single();
+        var titleText = titleBar.FindControl<TextBlock>("TitleText")!;
+        var contentRow = titleBar.FindControl<Border>("TitleBarContentRow")!;
+
+        Assert.Equal(40, titleBar.Bounds.Height);
+        Assert.False(contentRow.IsVisible);
+        Assert.True(titleText.IsVisible);
+        Assert.Equal("设置", titleText.Text);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void TitleBarWithContentUsesTwoRowsAndKeepsTitleVisible()
+    {
+        var content = new Border();
+        var window = new AppWindow
+        {
+            Width = 480,
+            Height = 320,
+            Title = "文稿",
+            TitleBarContent = content
+        };
+        window.Show();
+        var titleBar = window.GetVisualDescendants().OfType<WindowTitleBar>().Single();
+        var titleText = titleBar.FindControl<TextBlock>("TitleText")!;
+        var contentRow = titleBar.FindControl<Border>("TitleBarContentRow")!;
+
+        Assert.Equal(80, titleBar.Bounds.Height);
+        Assert.True(contentRow.IsVisible);
+        Assert.True(titleText.IsVisible);
+        Assert.Equal("文稿", titleText.Text);
+        Assert.Same(content, titleBar.TitleBarContent);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void FullScreenToggleRestoresNormalState()
     {
         var window = new AppWindow { CanMaximize = true, WindowState = WindowState.Normal };

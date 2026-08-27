@@ -56,15 +56,14 @@ public partial class AiView : UserControl
 
         foreach (var token in ViewModel.TextTokens)
         {
-            var button = new Button
+            var button = AppTypography.BindFontSize(new Button
             {
                 Content = $"{token.TagValue}  {token.FileCount}",
                 Padding = new global::Avalonia.Thickness(12, 6),
                 Margin = new global::Avalonia.Thickness(0, 0, 8, 8),
                 CornerRadius = new global::Avalonia.CornerRadius(6),
-                FontSize = 12,
                 Tag = token.TagValue
-            };
+            }, AppTypography.Label);
             button.Classes.Add("secondary");
             button.Click += async (_, _) =>
             {

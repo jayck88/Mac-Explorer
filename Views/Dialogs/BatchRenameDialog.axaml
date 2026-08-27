@@ -10,7 +10,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <!-- Header -->
-        <TextBlock Grid.Row="0" Text="批量重命名" FontSize="16" FontWeight="SemiBold"
+        <TextBlock Grid.Row="0" Text="批量重命名" FontSize="{DynamicResource FontSizeHeading}" FontWeight="{StaticResource FontWeightSemibold}"
                    Margin="0,0,0,12"/>
 
         <!-- Body: Left rules, Right preview -->
@@ -21,13 +21,13 @@
                     Padding="12">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="规则设置" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource ColorTextSecondary}"/>
+                        <TextBlock Text="规则设置" FontSize="{DynamicResource FontSizeLabel}" FontWeight="{StaticResource FontWeightSemibold}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                         <!-- Rule type selector -->
                         <StackPanel Spacing="4">
-                            <TextBlock Text="规则类型" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="规则类型" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <ComboBox x:Name="RuleTypeCombo" SelectedIndex="0"
                                       SelectionChanged="OnRuleTypeChanged">
                                 <ComboBoxItem Content="查找替换"/>
@@ -49,48 +49,48 @@
 
                         <!-- Prefix section -->
                         <StackPanel x:Name="PrefixSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="前缀文本" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="前缀文本" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <TextBox x:Name="PrefixTextBox" PlaceholderText="输入前缀..."
                                      TextChanged="OnRuleChanged"/>
                         </StackPanel>
 
                         <!-- Suffix section -->
                         <StackPanel x:Name="SuffixSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="后缀文本" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="后缀文本" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <TextBox x:Name="SuffixTextBox" PlaceholderText="输入后缀..."
                                      TextChanged="OnRuleChanged"/>
                         </StackPanel>
 
                         <!-- Sequence section -->
                         <StackPanel x:Name="SequenceSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="起始序号" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="起始序号" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <NumericUpDown x:Name="SeqStartBox" Value="1" Minimum="0"
                                            ValueChanged="OnRuleChanged"/>
-                            <TextBlock Text="步长" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="步长" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <NumericUpDown x:Name="SeqStepBox" Value="1" Minimum="1"
                                            ValueChanged="OnRuleChanged"/>
-                            <TextBlock Text="位数" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="位数" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <NumericUpDown x:Name="SeqPadBox" Value="2" Minimum="1" Maximum="10"
                                            ValueChanged="OnRuleChanged"/>
                         </StackPanel>
 
                         <!-- Date section -->
                         <StackPanel x:Name="DateSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="日期格式" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="日期格式" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <TextBox x:Name="DateFormatBox" Text="yyyy-MM-dd"
                                      TextChanged="OnRuleChanged"/>
                         </StackPanel>
 
                         <!-- Case section -->
                         <StackPanel x:Name="CaseSection" Spacing="4" IsVisible="False">
-                            <TextBlock Text="转换方式" FontSize="11"
-                                       Foreground="{DynamicResource ColorTextTertiary}"/>
+                            <TextBlock Text="转换方式" FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                             <ComboBox x:Name="CaseModeCombo" SelectedIndex="0"
                                       SelectionChanged="OnRuleChanged">
                                 <ComboBoxItem Content="大写"/>
@@ -108,12 +108,12 @@
                     Padding="8">
                 <Grid RowDefinitions="Auto,*">
                     <Grid Grid.Row="0" ColumnDefinitions="*,*,Auto" Margin="4,0,4,4">
-                        <TextBlock Grid.Column="0" Text="原文件名" FontSize="11"
-                                   Foreground="{DynamicResource ColorTextTertiary}"/>
-                        <TextBlock Grid.Column="1" Text="新文件名" FontSize="11"
-                                   Foreground="{DynamicResource ColorTextTertiary}"/>
-                        <TextBlock Grid.Column="2" Text="状态" FontSize="11"
-                                   Foreground="{DynamicResource ColorTextTertiary}"/>
+                        <TextBlock Grid.Column="0" Text="原文件名" FontSize="{DynamicResource FontSizeCaption}"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="1" Text="新文件名" FontSize="{DynamicResource FontSizeCaption}"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Grid.Column="2" Text="状态" FontSize="{DynamicResource FontSizeCaption}"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
                     </Grid>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="PreviewList">
@@ -123,18 +123,18 @@
                                           Background="Transparent">
                                         <TextBlock Grid.Column="0"
                                                    Text="{Binding OriginalName}"
-                                                   FontSize="12"
+                                                   FontSize="{DynamicResource FontSizeLabel}"
                                                    TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource ColorTextSecondary}"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         <TextBlock Grid.Column="1"
                                                    Text="{Binding NewName}"
-                                                   FontSize="12"
+                                                   FontSize="{DynamicResource FontSizeLabel}"
                                                    TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource ColorTextPrimary}"/>
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                                         <TextBlock Grid.Column="2"
-                                                   FontSize="11"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    Text="{Binding ErrorReason}"
-                                                   Foreground="#E5484D"/>
+                                                   Foreground="{DynamicResource DangerBrush}"/>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -148,8 +148,8 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
             <Button x:Name="StatusText" Classes="link"
-                    IsHitTestVisible="False" FontSize="11"
-                    Foreground="{DynamicResource ColorTextTertiary}"/>
+                    IsHitTestVisible="False" FontSize="{DynamicResource FontSizeCaption}"
+                    Foreground="{DynamicResource TextMutedBrush}"/>
             <Button Classes="secondary" Click="OnCancel">取消</Button>
             <Button x:Name="ApplyButton" Classes="primary" Click="OnApply"
                     IsEnabled="True">应用</Button>

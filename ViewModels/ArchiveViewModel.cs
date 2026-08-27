@@ -137,11 +137,44 @@ public partial class ArchiveViewModel : ObservableObject
         Func<Task> refreshCallback,
         Func<Task<string?>> promptPassword)
     {
-        if (_archiveService == null || _taskManager == null) return;
+        await ExtractAsync(
+            entry,
+            currentPath,
+            createNamedFolder: false,
+            setStatus,
+            refreshCallback,
+            promptPassword);
+    }
+
+    public async Task ExtractToNamedFolderAsync(
+        FileSystemEntry entry,
+        string currentPath,
+        Action<string> setStatus,
+        Func<Task> refreshCallback,
+        Func<Task<string?>> promptPassword)
+    {
+        await ExtractAsync(
+            entry,
+            currentPath,
+            createNamedFolder: true,
+            setStatus,
+            refreshCallback,
+            promptPassword);
+    }
+
+    private Task ExtractAsync(
+        FileSystemEntry entry,
+        string currentPath,
+        bool createNamedFolder,
+        Action<string> setStatus,
+        Func<Task> refreshCallback,
+        Func<Task<string?>> promptPassword)
+    {
+        if (_archiveService == null || _taskManager == null) return Task.CompletedTask;
         var archPath = ArchivePathHelper.IsArchivePath(entry.FullPath)
             ? ArchivePathHelper.Parse(entry.FullPath).archivePath
             : entry.FullPath;
-        var destDir = Path.GetDirectoryName(archPath) ?? currentPath;
+        var parentDir = Path.GetDirectoryName(archPath) ?? currentPath;
 
         var taskInfo = _taskManager.AddTask("正在解压...", async () =>
         {
@@ -152,6 +185,9 @@ public partial class ArchiveViewModel : ObservableObject
         {
             try
             {
+                var destDir = createNamedFolder
+                    ? ArchiveExtractionPathHelper.CreateUniqueExtractionDirectory(parentDir, archPath)
+                    : parentDir;
                 var progress = new Progress<ArchiveProgress>(p =>
                 {
                     _taskManager.UpdateProgress(taskInfo.Id, p.Percentage, p.CurrentFile, p.OperationLabel);
@@ -181,6 +217,8 @@ public partial class ArchiveViewModel : ObservableObject
                 _taskManager.FailTask(taskInfo.Id, ex.Message);
             }
         });
+
+        return Task.CompletedTask;
     }
 
     private async Task HandleExtractPasswordAsync(

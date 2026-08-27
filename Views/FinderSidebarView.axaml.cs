@@ -18,6 +18,9 @@ namespace MacExplorer.Views;
 public partial class FinderSidebarView : UserControl
 {
     private Collection? _editingCollection;
+    private Border? _activeCollectionEditorRow;
+    private TextBox? _activeCollectionInput;
+    private bool _isCommittingCollectionEdit;
 
     public FinderSidebarView()
     {
@@ -223,6 +226,11 @@ public partial class FinderSidebarView : UserControl
 
     private async void OnCollectionPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (ReferenceEquals(sender, _activeCollectionEditorRow))
+        {
+            e.Handled = true;
+            return;
+        }
         if (sender is not Border { Tag: Collection col } || ViewModel == null) return;
         await ViewModel.NavigateToCollectionAsync(col.Id);
         UpdateActiveStates();
@@ -254,52 +262,146 @@ public partial class FinderSidebarView : UserControl
 
     private void StartNewCollection(object? sender, RoutedEventArgs e)
     {
+        e.Handled = true;
+        CancelCollectionEdit();
         _editingCollection = null;
-        NewCollectionPanel.IsVisible = true;
+        if (ViewModel?.IsCollectionsSectionCollapsed == true)
+            ViewModel.IsCollectionsSectionCollapsed = false;
+
+        NewCollectionEditorRow.IsVisible = true;
+        _activeCollectionEditorRow = NewCollectionEditorRow;
+        _activeCollectionInput = NewCollectionInput;
         NewCollectionInput.Text = "新收藏夹";
-        NewCollectionInput.Focus();
-        NewCollectionInput.SelectAll();
+        FocusCollectionInput(NewCollectionInput);
     }
 
-    private void OnNewCollectionLostFocus(object? sender, RoutedEventArgs e)
+    private void OnCollectionEditorLostFocus(object? sender, RoutedEventArgs e)
     {
-        _ = CommitNewCollection();
+        if (sender is TextBox input && ReferenceEquals(input, _activeCollectionInput))
+            _ = CommitCollectionEditAsync();
     }
 
-    private async void OnNewCollectionKeyDown(object? sender, KeyEventArgs e)
+    private async void OnCollectionEditorKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
-            await CommitNewCollection();
+        {
+            e.Handled = true;
+            await CommitCollectionEditAsync();
+        }
         else if (e.Key == Key.Escape)
         {
-            NewCollectionPanel.IsVisible = false;
-            NewCollectionInput.Text = "";
+            e.Handled = true;
+            CancelCollectionEdit();
         }
     }
 
-    private async System.Threading.Tasks.Task CommitNewCollection()
+    private async void CommitCollectionEdit(object? sender, RoutedEventArgs e)
     {
-        NewCollectionPanel.IsVisible = false;
-        if (!string.IsNullOrWhiteSpace(NewCollectionInput.Text) && ViewModel != null)
+        e.Handled = true;
+        await CommitCollectionEditAsync();
+    }
+
+    private async System.Threading.Tasks.Task CommitCollectionEditAsync()
+    {
+        if (_isCommittingCollectionEdit || _activeCollectionInput == null) return;
+
+        _isCommittingCollectionEdit = true;
+        var name = _activeCollectionInput.Text?.Trim();
+        var collection = _editingCollection;
+        EndCollectionEditUi();
+
+        try
         {
-            if (_editingCollection == null)
-                await ViewModel.CreateCollectionAsync(NewCollectionInput.Text.Trim());
-            else
-                await ViewModel.RenameCollectionAsync(_editingCollection.Id, NewCollectionInput.Text.Trim());
+            if (!string.IsNullOrWhiteSpace(name) && ViewModel != null)
+            {
+                if (collection == null)
+                    await ViewModel.CreateCollectionAsync(name);
+                else
+                    await ViewModel.RenameCollectionAsync(collection.Id, name);
+            }
         }
-        _editingCollection = null;
-        NewCollectionInput.Text = "";
+        finally
+        {
+            _isCommittingCollectionEdit = false;
+        }
     }
 
     private void RenameCollection(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (sender is not Button { Tag: Collection collection }) return;
+        if (sender is not Button { Tag: Collection collection } button) return;
+
+        var row = button.GetVisualAncestors()
+            .OfType<Border>()
+            .FirstOrDefault(border => border.Classes.Contains("collection-row"));
+        if (row == null) return;
+
+        CancelCollectionEdit();
         _editingCollection = collection;
-        NewCollectionPanel.IsVisible = true;
-        NewCollectionInput.Text = collection.Name;
-        NewCollectionInput.Focus();
-        NewCollectionInput.SelectAll();
+        _activeCollectionEditorRow = row;
+        _activeCollectionInput = FindCollectionRowControl<TextBox>(row, "collection-name-editor");
+        if (_activeCollectionInput == null)
+        {
+            CancelCollectionEdit();
+            return;
+        }
+
+        SetCollectionRowEditing(row, true);
+        _activeCollectionInput.Text = collection.Name;
+        FocusCollectionInput(_activeCollectionInput);
+    }
+
+    private void CancelCollectionEdit()
+    {
+        EndCollectionEditUi();
+    }
+
+    private void EndCollectionEditUi()
+    {
+        if (_editingCollection != null && _activeCollectionEditorRow != null)
+            SetCollectionRowEditing(_activeCollectionEditorRow, false);
+
+        NewCollectionEditorRow.IsVisible = false;
+        NewCollectionInput.Text = "";
+        _editingCollection = null;
+        _activeCollectionEditorRow = null;
+        _activeCollectionInput = null;
+    }
+
+    private static void SetCollectionRowEditing(Border row, bool editing)
+    {
+        var nameLabel = FindCollectionRowControl<TextBlock>(row, "collection-name-label");
+        var nameEditor = FindCollectionRowControl<TextBox>(row, "collection-name-editor");
+        var confirmButton = FindCollectionRowControl<Button>(row, "collection-confirm-action");
+
+        if (nameLabel != null) nameLabel.IsVisible = !editing;
+        if (nameEditor != null) nameEditor.IsVisible = editing;
+        if (confirmButton != null) confirmButton.IsVisible = editing;
+
+        foreach (var action in row.GetVisualDescendants()
+                     .OfType<Button>()
+                     .Where(button => button.Classes.Contains("collection-normal-action")))
+        {
+            action.IsVisible = !editing;
+        }
+    }
+
+    private static T? FindCollectionRowControl<T>(Border row, string className)
+        where T : Control
+    {
+        return row.GetVisualDescendants()
+            .OfType<T>()
+            .FirstOrDefault(control => control.Classes.Contains(className));
+    }
+
+    private static void FocusCollectionInput(TextBox input)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!input.IsVisible) return;
+            input.Focus();
+            input.SelectAll();
+        }, DispatcherPriority.Input);
     }
 
     private void DeleteCollection(object? sender, RoutedEventArgs e)

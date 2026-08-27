@@ -11,15 +11,15 @@
     <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <StackPanel Grid.Row="1" Spacing="14">
             <StackPanel Spacing="4">
-                <TextBlock Text="压缩包名称" FontSize="12"
-                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                <TextBlock Text="压缩包名称" FontSize="{DynamicResource FontSizeLabel}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBox x:Name="ArchiveNameBox" Text="Archive.zip"/>
             </StackPanel>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="压缩格式" FontSize="12"
+                <TextBlock Text="压缩格式" FontSize="{DynamicResource FontSizeLabel}"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <Button x:Name="BtnZip" Classes="secondary"
                             Click="OnFormatChanged" Tag="Zip">ZIP</Button>
@@ -31,8 +31,8 @@
             </StackPanel>
 
             <StackPanel Spacing="4">
-                <TextBlock Text="压缩级别" FontSize="12"
-                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                <TextBlock Text="压缩级别" FontSize="{DynamicResource FontSizeLabel}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <Button x:Name="BtnFast" Classes="secondary"
                             Click="OnLevelChanged" Tag="Fast">快速</Button>
@@ -44,9 +44,9 @@
             </StackPanel>
 
             <StackPanel Spacing="4" x:Name="PasswordSection">
-                <TextBlock Text="密码（可选，仅 ZIP 格式）" FontSize="12"
+                <TextBlock Text="密码（可选，仅 ZIP 格式）" FontSize="{DynamicResource FontSizeLabel}"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource ColorTextSecondary}"/>
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBox x:Name="PasswordBox" Grid.Column="0"
                              PasswordChar="●"

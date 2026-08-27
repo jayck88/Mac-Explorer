@@ -26,7 +26,7 @@
                     x:Name="NewBtn" Click="ToggleNewDropdown">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Plus}"/>
-                    <TextBlock Text="新建" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text="新建" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
 
@@ -42,7 +42,7 @@
                                 Click="NewFolder">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Folder}"/>
-                                <TextBlock Text="新建文件夹" FontSize="13"/>
+                                <TextBlock Text="新建文件夹" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
                         <Button Classes="toolbar-popup-item"
@@ -50,7 +50,7 @@
                                 Tag=".txt" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Text}"/>
-                                <TextBlock Text="新建文本文件" FontSize="13"/>
+                                <TextBlock Text="新建文本文件" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
                         <Button Classes="toolbar-popup-item"
@@ -58,7 +58,7 @@
                                 Tag=".md" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Markdown}"/>
-                                <TextBlock Text="新建 Markdown" FontSize="13"/>
+                                <TextBlock Text="新建 Markdown" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
                         <Button Classes="toolbar-popup-item"
@@ -66,33 +66,33 @@
                                 Tag=".json" Click="NewFile">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Json}"/>
-                                <TextBlock Text="新建 JSON 文件" FontSize="13"/>
+                                <TextBlock Text="新建 JSON 文件" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
                         <Separator/>
                         <Button x:Name="NewWordButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".docx" Click="NewFile">
-                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Word}"/><TextBlock Text="新建 Word 文稿" FontSize="13"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Word}"/><TextBlock Text="新建 Word 文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
                         <Button x:Name="NewExcelButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".xlsx" Click="NewFile">
-                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Excel}"/><TextBlock Text="新建 Excel 表格" FontSize="13"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Excel}"/><TextBlock Text="新建 Excel 表格" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
                         <Button x:Name="NewPowerPointButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".pptx" Click="NewFile">
-                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.PowerPoint}"/><TextBlock Text="新建 PowerPoint 演示文稿" FontSize="13"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.PowerPoint}"/><TextBlock Text="新建 PowerPoint 演示文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
                         <Button x:Name="NewPagesButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".pages" Click="NewFile">
-                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Pages}"/><TextBlock Text="新建 Pages 文稿" FontSize="13"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Pages}"/><TextBlock Text="新建 Pages 文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
                         <Button x:Name="NewNumbersButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".numbers" Click="NewFile">
-                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Numbers}"/><TextBlock Text="新建 Numbers 表格" FontSize="13"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Numbers}"/><TextBlock Text="新建 Numbers 表格" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
                         <Button x:Name="NewKeynoteButton" Classes="toolbar-popup-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Tag=".key" Click="NewFile">
-                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Keynote}"/><TextBlock Text="新建 Keynote 演示文稿" FontSize="13"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8"><Image Classes="new-item-icon" Source="{x:Static icons:NewItemIcons.Keynote}"/><TextBlock Text="新建 Keynote 演示文稿" FontSize="{DynamicResource FontSizeBody}"/></StackPanel>
                         </Button>
                     </StackPanel>
                 </Border>
@@ -146,7 +146,7 @@
             <Button Grid.Column="11" x:Name="SortButton" Classes="ghost toolbar-btn" ToolTip.Tip="排序和分组" Click="ToggleSortDropdown">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.SortUpDown}"/>
-                    <TextBlock Text="排序" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text="排序" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
             <Popup x:Name="SortDropdown" Placement="BottomEdgeAlignedLeft" PlacementTarget="SortButton"
@@ -198,7 +198,7 @@
                                 Click="OnBatchRename">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.Rename}"/>
-                                <TextBlock Text="批量重命名" FontSize="13"/>
+                                <TextBlock Text="批量重命名" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
                         <Button Classes="toolbar-popup-item"
@@ -206,7 +206,7 @@
                                 Click="OnConnectRemoteServer">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Classes="toolbar-icon" Data="{x:Static icons:Icons.ExternalDrive}"/>
-                                <TextBlock Text="连接远程服务器" FontSize="13"/>
+                                <TextBlock Text="连接远程服务器" FontSize="{DynamicResource FontSizeBody}"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>

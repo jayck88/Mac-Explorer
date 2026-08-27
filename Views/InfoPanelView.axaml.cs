@@ -757,19 +757,19 @@ public partial class InfoPanelView : UserControl
                 ColumnDefinitions = new ColumnDefinitions("72,*"),
                 Children =
                 {
-                    new TextBlock
+                    AppTypography.BindFontSize(new TextBlock
                     {
-                        Text = label, FontSize = 11,
+                        Text = label,
                         Foreground = Brush.Parse("#8E8E93"),
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                    },
-                    new TextBlock
+                    }, AppTypography.Caption),
+                    AppTypography.BindFontSize(new TextBlock
                     {
                         [Grid.ColumnProperty] = 1,
-                        Text = value, FontSize = 12,
+                        Text = value,
                         TextWrapping = TextWrapping.Wrap,
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                    }
+                    }, AppTypography.Label)
                 }
             });
         }
@@ -781,31 +781,35 @@ public partial class InfoPanelView : UserControl
     {
         foreach (var (name, color) in FinderTagColors)
         {
+            var tagBrush = Brush.Parse(color);
             var tagBtn = new Button
             {
                 Width = 24, Height = 24,
-                Background = Brush.Parse(color),
+                Background = tagBrush,
                 CornerRadius = new CornerRadius(999),
                 Padding = new Thickness(0),
                 Tag = name,
                 BorderThickness = new Thickness(0),
                 Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Hand)
             };
+            // Fluent paints pointer states on the template presenter. Keep those
+            // state resources local so hovering never replaces the tag's color.
+            tagBtn.Resources["ButtonBackgroundPointerOver"] = tagBrush;
+            tagBtn.Resources["ButtonBackgroundPressed"] = tagBrush;
             tagBtn.Classes.Add("system-tag-dot");
             ToolTip.SetTip(tagBtn, name);
 
             // Checkmark overlay (hidden by default)
-            var checkmark = new TextBlock
+            var checkmark = AppTypography.BindFontSize(new TextBlock
             {
                 Text = "✓",
-                FontSize = 13,
                 FontWeight = FontWeight.Bold,
                 Foreground = Brushes.White,
                 HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                 IsVisible = false,
                 Tag = "check"
-            };
+            }, AppTypography.IconGlyph);
             tagBtn.Content = checkmark;
             tagBtn.Click += OnSystemTagClick;
             SystemTagsPanel.Children.Add(tagBtn);
@@ -883,17 +887,16 @@ public partial class InfoPanelView : UserControl
 
     private Border CreateTagChip(string tag, string filePath)
     {
-        var textTertiary = ResolveBrush("ColorTextTertiary", "#7D8491");
+        var textTertiary = ResolveBrush("TextMutedBrush", "#7D8491");
         var surfaceSecondary = ResolveBrush("ColorSurfaceSecondary", "#F0F1F3");
-        var textSecondary = ResolveBrush("ColorTextSecondary", "#5B6270");
+        var textSecondary = ResolveBrush("TextSecondaryBrush", "#5B6270");
         var bgHover = ResolveBrush("ColorBgHover", "#0B0F172A");
 
-        var removeBtn = new Button
+        var removeBtn = AppTypography.BindFontSize(new Button
         {
             Content = "×",
             Width = 14, Height = 14,
             Background = Brushes.Transparent,
-            FontSize = 10,
             Padding = new Thickness(0),
             CornerRadius = new CornerRadius(7),
             Foreground = textTertiary,
@@ -901,7 +904,7 @@ public partial class InfoPanelView : UserControl
             VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
-        };
+        }, AppTypography.IconGlyph);
         removeBtn.Classes.Add("ghost");
 
         var chip = new Border
@@ -916,12 +919,12 @@ public partial class InfoPanelView : UserControl
                 Spacing = 2,
                 Children =
                 {
-                    new TextBlock
+                    AppTypography.BindFontSize(new TextBlock
                     {
-                        Text = tag, FontSize = 11.5,
+                        Text = tag,
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                         Foreground = textSecondary
-                    },
+                    }, AppTypography.Label),
                     removeBtn
                 }
             }

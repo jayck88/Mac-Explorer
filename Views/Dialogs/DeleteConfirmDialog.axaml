@@ -8,12 +8,12 @@
         Background="{DynamicResource GlassEffectBg}">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="24">
-        <TextBlock Grid.Row="0" x:Name="DialogTitle" Text="确认删除" FontSize="16" FontWeight="Bold"
-                   Foreground="{DynamicResource ColorTextPrimary}"/>
+        <TextBlock Grid.Row="0" x:Name="DialogTitle" Text="确认删除" FontSize="{DynamicResource FontSizeHeading}" FontWeight="{StaticResource FontWeightBold}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"/>
         <TextBlock Grid.Row="1" x:Name="ConfirmMessage"
                    Text="确定要删除选中的项目吗？"
-                   FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"
-                   Foreground="{DynamicResource ColorTextSecondary}"
+                   FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    Margin="0,8"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8">

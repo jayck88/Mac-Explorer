@@ -53,7 +53,7 @@ public partial class WindowTitleBar : UserControl
             _ownerWindow.Deactivated += OnOwnerActivationChanged;
         }
         UpdateWindowControlState();
-        UpdateTitleTextVisibility();
+        UpdateTitleBarContentState();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -72,7 +72,7 @@ public partial class WindowTitleBar : UserControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == TitleBarContentProperty)
-            UpdateTitleTextVisibility();
+            UpdateTitleBarContentState();
     }
 
     private void OnOwnerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -86,7 +86,7 @@ public partial class WindowTitleBar : UserControl
 
     private void OnOwnerActivationChanged(object? sender, EventArgs e) => UpdateWindowControlState();
 
-    private void UpdateTitleTextVisibility() => TitleText.IsVisible = TitleBarContent is null;
+    private void UpdateTitleBarContentState() => TitleBarContentRow.IsVisible = TitleBarContent is not null;
 
     private void UpdateWindowControlState()
     {

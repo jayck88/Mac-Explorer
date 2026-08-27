@@ -63,6 +63,7 @@ public class AppUpdateTests
             new DefaultAppServiceStub(),
             new SettingsServiceStub(),
             new ThemeServiceStub(),
+            new TypographyServiceStub(),
             new OpenWithAppServiceStub(),
             updateService);
         var updateButton = dialog.FindControl<Button>("UpdateButton")!;
@@ -182,6 +183,25 @@ public class AppUpdateTests
         }
 
         public string GetThemeMode() => "system";
+    }
+
+    private sealed class TypographyServiceStub : ITypographyService
+    {
+        public FontSizePreset CurrentPreset => FontSizePreset.Standard;
+
+        public event EventHandler<TypographyChangedEventArgs>? TypographyChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public void Initialize()
+        {
+        }
+
+        public void SetPreset(FontSizePreset preset)
+        {
+        }
     }
 
     private sealed class OpenWithAppServiceStub : IOpenWithAppService

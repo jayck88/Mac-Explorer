@@ -29,33 +29,41 @@
 
     <Style Selector="ListBox.sidebar ListBoxItem">
         <Setter Property="Padding" Value="10,3"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Margin" Value="4,1"/>
-        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
     </Style>
 
     <Style Selector="ListBox.sidebar ListBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <Style Selector="ListBox.sidebar ListBoxItem.active /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <Style Selector="TextBlock.sidebar-section-title">
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="Padding" Value="18,4,18,4"/>
         <Setter Property="Margin" Value="0,0,0,2"/>
     </Style>
 
     <!-- Collapsible section title -->
     <Style Selector="TextBlock.sidebar-section-title-collapsible">
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="Padding" Value="18,4,18,4"/>
         <Setter Property="Margin" Value="0,8,0,2"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -65,15 +73,26 @@
     <Style Selector="PathIcon.sidebar-collapse-icon">
         <Setter Property="Width" Value="10"/>
         <Setter Property="Height" Value="10"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextQuaternary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
     </Style>
 
     <Style Selector="PathIcon.sidebar-collapse-icon.expanded">
         <Setter Property="RenderTransform" Value="rotate(0.25turn)"/>
     </Style>
 
+    <Style Selector="Grid.sidebar-section-header">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Grid.sidebar-section-header PathIcon.sidebar-header-reveal">
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+
     <!-- Sidebar item action button (visible on hover) -->
-    <Style Selector="Button.sidebar-item-action">
+    <Style Selector="Border.sidebar-item Button.sidebar-item-action">
         <Setter Property="MinWidth" Value="20"/>
         <Setter Property="MinHeight" Value="20"/>
         <Setter Property="Width" Value="20"/>
@@ -82,12 +101,13 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
         <Setter Property="Padding" Value="2"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
-    <Style Selector="Button.sidebar-header-action">
+    <Style Selector="Grid.sidebar-section-header Button.sidebar-header-action">
         <Setter Property="MinWidth" Value="22"/>
         <Setter Property="MinHeight" Value="22"/>
         <Setter Property="Width" Value="22"/>
@@ -95,13 +115,15 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
         <Setter Property="Padding" Value="4"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
-    <Style Selector="Button.sidebar-item-action:pointerover, Button.sidebar-item-action:pressed">
-        <Setter Property="Background" Value="Transparent"/>
+    <Style Selector="Button.sidebar-item-action:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
 
@@ -121,9 +143,9 @@
     <Style Selector="Border.sidebar-item">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="Padding" Value="10,3"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Margin" Value="4,1"/>
-        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
@@ -142,26 +164,67 @@
 
     <Style Selector="Border.sidebar-item TextBlock">
         <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBodyLarge}"/>
+    </Style>
+
+    <Style Selector="Border.sidebar-item TextBlock.sidebar-secondary-text">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}"/>
+    </Style>
+
+    <Style Selector="TextBox.collection-name-editor">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilySidebar}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightLight}"/>
     </Style>
 
     <Style Selector="Border.sidebar-item:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Border.sidebar-item:pointerover Button.sidebar-item-action">
         <Setter Property="Opacity" Value="1"/>
+        <Setter Property="IsHitTestVisible" Value="True"/>
+    </Style>
+
+    <Style Selector="Grid.sidebar-section-header:pointerover Button.sidebar-header-action">
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="IsHitTestVisible" Value="True"/>
+    </Style>
+
+    <Style Selector="Grid.sidebar-section-header:pointerover PathIcon.sidebar-header-reveal">
+        <Setter Property="Opacity" Value="1"/>
     </Style>
 
     <Style Selector="Border.sidebar-item.active">
-        <Setter Property="Background" Value="{DynamicResource ColorBgSelected}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
     </Style>
 
-    <!-- Inline rename input -->
-    <Style Selector="TextBox.sidebar-rename-input">
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="4,2"/>
-        <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
+    <Style Selector="Button.sidebar-inline-confirm">
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="MinHeight" Value="20"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.sidebar-inline-confirm:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+
+    <Style Selector="Button.sidebar-inline-confirm PathIcon">
+        <Setter Property="Width" Value="12"/>
+        <Setter Property="Height" Value="12"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
 
     <!-- ═══ Toolbar Styles ═══ -->
@@ -181,9 +244,9 @@
         <Setter Property="Height" Value="32"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
     
     <Style Selector="Button.w32">
@@ -191,7 +254,7 @@
     </Style>
 
     <Style Selector="Button.toolbar-btn:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Border.view-mode-segmented">
@@ -213,8 +276,8 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="7"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextSecondary}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -254,26 +317,33 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle:pointerover Border.view-mode-toggle-surface">
-        <Setter Property="Background" Value="{DynamicResource ViewModeToggleHoverBg}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle:checked Border.view-mode-toggle-surface">
-        <Setter Property="Background" Value="{DynamicResource ViewModeToggleSelectedBg}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="BoxShadow" Value="{DynamicResource ViewModeToggleShadow}"/>
     </Style>
 
     <Style Selector="ToggleButton.view-mode-toggle:checked:pointerover Border.view-mode-toggle-surface">
-        <Setter Property="Background" Value="{DynamicResource ViewModeToggleSelectedBg}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.view-mode-toggle:pressed Border.view-mode-toggle-surface">
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton.view-mode-toggle:checked:pressed Border.view-mode-toggle-surface">
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
 
     <Style Selector="TextBlock.toolbar-popup-header">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="Margin" Value="8,6,8,3"/>
     </Style>
 
@@ -294,32 +364,32 @@
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="7"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="Button.toolbar-popup-item:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Button.toolbar-popup-item:pressed">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
 
     <Style Selector="Button.toolbar-popup-item:focus-visible">
-        <Setter Property="BorderBrush" Value="{DynamicResource ColorAccent}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
     <Style Selector="Button.toolbar-btn.dropdown-open">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
     <Style Selector="Button.toolbar-btn:disabled">
-        <Setter Property="Opacity" Value="0.35"/>
+        <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
     </Style>
 
     <Style Selector="Button.toolbar-btn PathIcon">
@@ -328,7 +398,7 @@
     </Style>
 
     <Style Selector="Button.toolbar-btn.active">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
     </Style>
 
@@ -343,12 +413,11 @@
     <!-- ═══ Breadcrumb Styles ═══ -->
     <Style Selector="Border.breadcrumb-bar">
         <Setter Property="Height" Value="30"/>
-        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="Cursor" Value="IBeam"/>
-        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
-
     <Style Selector="TextBox.breadcrumb-input">
         <Setter Property="Height" Value="30"/>
         <Setter Property="MinHeight" Value="30"/>
@@ -356,20 +425,20 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Padding" Value="6,0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
     <Style Selector="TextBox.breadcrumb-input:focus">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
     </Style>
 
     <Style Selector="TextBox.omnibox-input">
         <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        <Setter Property="SelectionBrush" Value="{DynamicResource ColorBgHoverStrong}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource InteractionTextHighlightBrush}"/>
         <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
@@ -411,21 +480,21 @@
         <Setter Property="MinHeight" Value="44"/>
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="Margin" Value="0"/>
-        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="ListBox.omnibox-suggestions ListBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
-        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <Style Selector="ListBox.omnibox-suggestions ListBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <!-- ═══ Search Bar Styles ═══ -->
@@ -433,27 +502,33 @@
         <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="10,4"/>
         <Setter Property="Height" Value="32"/>
         <Setter Property="Width" Value="220"/>
         <Setter Property="BoxShadow" Value="{DynamicResource InsetHairlineShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                 <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" Easing="CubicEaseOut"/>
             </Transitions>
         </Setter>
     </Style>
 
     <Style Selector="Border.search-bar:pointerover">
-        <Setter Property="Background" Value="{DynamicResource AddressbarBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Border.search-bar:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Width" Value="252"/>
         <Setter Property="BoxShadow" Value="{DynamicResource InputFocusShadow}"/>
+    </Style>
+
+    <!-- Fluent expands a scrollbar on hover; retain the same rounded, trackless shape. -->
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
     </Style>
 
     <Style Selector="TextBox.search-input">
@@ -461,7 +536,7 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Padding" Value="3,0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
@@ -501,29 +576,29 @@
     </Style>
 
     <Style Selector="TextBlock.file-column-header">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="TextBlock.file-group-header">
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
     <Style Selector="Border.file-group-row">
-        <Setter Property="Height" Value="28"/>
+        <Setter Property="MinHeight" Value="{DynamicResource TypographyListRowMinHeight}"/>
         <Setter Property="Padding" Value="14,0"/>
         <Setter Property="Margin" Value="0,6,0,0"/>
     </Style>
 
     <Style Selector="TextBlock.file-group-count">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="Margin" Value="6,0,0,0"/>
     </Style>
@@ -559,16 +634,15 @@
         <Setter Property="Margin" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextDisabled}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
     </Style>
     <Style Selector="Button.rating-star PathIcon">
         <Setter Property="Width" Value="11"/>
         <Setter Property="Height" Value="11"/>
     </Style>
     <Style Selector="Button.rating-star:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="Foreground" Value="#F5B700"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Grid.entry-content.drag-over">
@@ -612,29 +686,29 @@
 
     <Style Selector="Button.info-tab">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="Button.info-tab:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Button.info-tab-active">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ColorAccent}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="Button.info-tab-active:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentMedium}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedHoverBrush}"/>
     </Style>
 
     <!-- ═══ Info Panel Rating Stars ═══ -->
@@ -644,13 +718,13 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="FontSize" Value="18"/>
-        <Setter Property="Foreground" Value="#D1D1D6"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="Button.rating-star-btn:pointerover">
-        <Setter Property="Foreground" Value="#F5B700"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <!-- ═══ Dialogs ═══ -->
@@ -663,18 +737,22 @@
 
     <Style Selector="Button.modal-btn">
         <Setter Property="Padding" Value="16,8"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
     </Style>
 
     <Style Selector="Button.modal-btn-cancel">
         <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <Style Selector="Button.modal-btn-danger">
         <Setter Property="Background" Value="{DynamicResource ColorDanger}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+    </Style>
+    <Style Selector="Button.modal-btn-danger:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
 
@@ -685,19 +763,24 @@
 
     <Style Selector="Border.ai-search-box">
         <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
-        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="12,6"/>
         <Setter Property="BoxShadow" Value="{DynamicResource InsetHairlineShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                 <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" Easing="CubicEaseOut"/>
             </Transitions>
         </Setter>
     </Style>
 
+    <Style Selector="Border.ai-search-box:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+
     <Style Selector="Border.ai-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="BoxShadow" Value="{DynamicResource InputFocusShadow}"/>
     </Style>
 
@@ -705,12 +788,12 @@
 
     <Style Selector="Border.task-overlay-row">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="MinHeight" Value="32"/>
     </Style>
     <Style Selector="Border.task-overlay-row:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Border.task-state-dot">
@@ -731,18 +814,18 @@
     </Style>
 
     <Style Selector="TextBlock.task-label">
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.task-percent">
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.task-status">
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
@@ -759,13 +842,13 @@
         <Setter Property="MinHeight" Value="24"/>
         <Setter Property="Height" Value="24"/>
         <Setter Property="Padding" Value="5"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
     <Style Selector="Button.task-row-close PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="Button.task-row-close:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
     <Style Selector="Button.task-row-close:pointerover PathIcon">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -785,12 +868,11 @@
         <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="BoxShadow" Value="{DynamicResource HomeSearchShadow}"/>
         <Setter Property="Transitions">
             <Transitions>
                 <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut"/>
-                <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
                 <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" Easing="CubicEaseOut"/>
             </Transitions>
         </Setter>
@@ -798,15 +880,21 @@
 
     <Style Selector="Border.home-search-box:focus-within">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Width" Value="560"/>
         <Setter Property="BoxShadow" Value="{DynamicResource HomeSearchFocusShadow}"/>
+    </Style>
+
+    <Style Selector="Border.home-search-box:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="TextBox.home-search-input">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
         <Setter Property="Padding" Value="4,0,14,0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
@@ -822,11 +910,11 @@
         <Setter Property="Height" Value="126"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <Style Selector="Button.home-shortcut:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Border.home-shortcut-icon">
@@ -840,9 +928,9 @@
     <!-- ═══ Tooltip ═══ -->
     <Style Selector="ToolTip">
         <Setter Property="Background" Value="{DynamicResource GlassEffectBgSubmenu}"/>
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextPrimary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Padding" Value="6,3"/>
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCaption}"/>
         <Setter Property="CornerRadius" Value="4"/>
     </Style>
 
@@ -855,51 +943,51 @@
 
     <Style Selector="ListBox.settings-tabs ListBoxItem">
         <Setter Property="Padding" Value="10,8"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Margin" Value="0,2"/>
     </Style>
 
     <Style Selector="ListBox.settings-tabs ListBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <Style Selector="ListBox.settings-tabs ListBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource ColorAccentLight}"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
     </Style>
 
     <!-- ═══ Settings Content ═══ -->
     <Style Selector="CheckBox.settings-check">
         <Setter Property="Margin" Value="0,6,0,0"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
     </Style>
 
     <Style Selector="TextBlock.settings-section-title">
-        <Setter Property="FontSize" Value="16"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeHeading}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
 
     <!-- ═══ Compress Dialog ═══ -->
     <Style Selector="Button.segment-btn">
         <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
         <Setter Property="Margin" Value="0,0,4,0"/>
     </Style>
 
     <Style Selector="Button.segment-btn.active">
         <Setter Property="Background" Value="{DynamicResource ColorAccent}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
     </Style>
 
     <!-- ═══ About Panel ═══ -->
     <Style Selector="Button.about-update-btn">
-        <Setter Property="FontSize" Value="14"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Padding" Value="24,10"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
@@ -908,12 +996,12 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="0"/>
     </Style>
 
     <Style Selector="Button.close-btn:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <!-- ═══ Drag States ═══ -->
@@ -924,47 +1012,46 @@
 
     <!-- ═══ Empty State ═══ -->
     <Style Selector="TextBlock.empty-state-text">
-        <Setter Property="Foreground" Value="{DynamicResource ColorTextTertiary}"/>
-        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBodyLarge}"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
 
     <!-- ═══ Liquid Glass Buttons ═══ -->
     <Style Selector="Button.glass-btn">
         <Setter Property="Background" Value="#14000000"/>
-        <Setter Property="Foreground" Value="#1C1C1E"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="28,10"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="Button.glass-btn:pointerover">
-        <Setter Property="Background" Value="#20000000"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="Button.glass-btn:pressed">
-        <Setter Property="Background" Value="#0A000000"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
 
     <Style Selector="Button.glass-btn:disabled">
-        <Setter Property="Opacity" Value="0.4"/>
+        <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
     </Style>
 
     <Style Selector="Button.glass-btn-ghost">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="#8E8E93"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Padding" Value="28,10"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
 
     <Style Selector="Button.glass-btn-ghost:pointerover">
-        <Setter Property="Background" Value="#0C000000"/>
-        <Setter Property="Foreground" Value="#1C1C1E"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 </Styles>

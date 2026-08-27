@@ -22,6 +22,7 @@ public static class FileIconRenderer
             "file-pdf" => PdfFile(),
             "file-archive" or "file-package" => ArchiveFile(ext),
             "file-certificate" => CertificateFile(),
+            "file-android-package" => AndroidPackageFile(),
             "file-installer" or "file-disk-image" => InstallerFile(ext),
             "file-image" => ImageFile(ext),
             "file-web" => WebFile(ext),
@@ -167,6 +168,19 @@ public static class FileIconRenderer
         @"<path d=""M14 13.5l1.5 1.5 3-3"" fill=""none"" stroke=""#fff"" stroke-width=""1.3"" stroke-linecap=""round"" stroke-linejoin=""round""/>" +
         @"<path d=""M12.5 18.5l-2 7 3.5-1.5 2 2.5v-8"" fill=""#EF4444"" opacity=""0.55""/>" +
         @"<path d=""M19.5 18.5l2 7-3.5-1.5-2 2.5v-8"" fill=""#EF4444"" opacity=""0.55""/>";
+
+    static string AndroidPackageFile() =>
+        Card("#EAF8EF", "#D5F3E0") +
+        @"<path d=""M11 9L8.7 5.8M21 9l2.3-3.2"" fill=""none"" stroke=""#188038"" stroke-width=""1.4"" stroke-linecap=""round""/>" +
+        @"<path d=""M7.5 14.5C8.2 10.2 11.7 7.5 16 7.5s7.8 2.7 8.5 7z"" fill=""#3DDC84""/>" +
+        @"<circle cx=""12"" cy=""11.6"" r=""1"" fill=""#fff""/>" +
+        @"<circle cx=""20"" cy=""11.6"" r=""1"" fill=""#fff""/>" +
+        @"<rect x=""7.5"" y=""15.8"" width=""17"" height=""9"" rx=""2.4"" fill=""#3DDC84""/>" +
+        @"<rect x=""4.8"" y=""16.2"" width=""2.2"" height=""7.3"" rx=""1.1"" fill=""#3DDC84""/>" +
+        @"<rect x=""25"" y=""16.2"" width=""2.2"" height=""7.3"" rx=""1.1"" fill=""#3DDC84""/>" +
+        @"<rect x=""10.8"" y=""22.5"" width=""3"" height=""5"" rx=""1.5"" fill=""#3DDC84""/>" +
+        @"<rect x=""18.2"" y=""22.5"" width=""3"" height=""5"" rx=""1.5"" fill=""#3DDC84""/>" +
+        @"<rect x=""8.5"" y=""16.2"" width=""15"" height=""3.2"" rx=""1.6"" fill=""#fff"" opacity=""0.12""/>";
 
     static string InstallerFile(string ext) =>
         Card("#DBEAFE", "#BFDBFE") +

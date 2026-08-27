@@ -29,6 +29,8 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         Services = ConfigureServices();
         Services.GetRequiredService<IThemeService>().Initialize();
+        Services.GetRequiredService<IInteractionStyleService>().Initialize();
+        Services.GetRequiredService<ITypographyService>().Initialize();
         RegisterOmniboxProviders();
 
         // Catch UI-thread exceptions so a single handler error never crashes the app.
@@ -206,6 +208,8 @@ public partial class App : Application
         services.AddSingleton<IImageAnalysisService, Platforms.MacCatalyst.Services.MacImageAnalysisService>();
         services.AddSingleton<IDefaultAppService, Platforms.MacCatalyst.Services.MacDefaultAppService>();
         services.AddSingleton<IThemeService, Platforms.MacCatalyst.Services.MacThemeService>();
+        services.AddSingleton<IInteractionStyleService, Services.Impl.InteractionStyleService>();
+        services.AddSingleton<ITypographyService, Services.Impl.TypographyService>();
         services.AddSingleton<IDisplayNameService, Platforms.MacCatalyst.Services.MacDisplayNameService>();
         services.AddSingleton<HttpClient>(_ => new HttpClient(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(30), PooledConnectionLifetime = TimeSpan.FromMinutes(5) }) { Timeout = TimeSpan.FromMinutes(10) });
         services.AddSingleton<IAppUpdateService, Services.Impl.AppUpdateService>();

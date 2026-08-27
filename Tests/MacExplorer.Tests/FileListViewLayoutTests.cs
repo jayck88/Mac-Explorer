@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Models;
@@ -39,6 +41,10 @@ public sealed class FileListViewLayoutTests
     {
         var entry = File("short.txt");
         var view = new FileListView();
+        view.Styles.Add((Styles)AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/Styles.axaml")));
+        view.Styles.Add((Styles)AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/ComponentStyles.axaml")));
         var surface = view.FindControl<Grid>("InteractionSurface")!;
         surface.Children.Add(BuildRow(view, entry));
         var window = new Window { Width = 760, Height = 480, Content = view };

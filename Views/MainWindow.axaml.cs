@@ -746,7 +746,7 @@ public partial class MainWindow : AppWindow
             {
                 var undoBtn = new Button
                 {
-                    Content = new TextBlock { Text = "撤销", FontSize = 10 }
+                    Content = AppTypography.BindFontSize(new TextBlock { Text = "撤销" }, AppTypography.Meta)
                 };
                 undoBtn.Classes.Add("ghost");
                 undoBtn.Classes.Add("task-row-close");
@@ -797,13 +797,12 @@ public partial class MainWindow : AppWindow
         else if (task.State == BackgroundTaskState.Failed
                  && !string.IsNullOrWhiteSpace(task.ErrorMessage))
         {
-            var errorText = new TextBlock
+            var errorText = AppTypography.BindFontSize(new TextBlock
             {
                 Text = task.ErrorMessage,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                FontSize = 10,
                 Foreground = Brush.Parse("#E5484D")
-            };
+            }, AppTypography.Meta);
             Grid.SetColumn(errorText, 1);
             Grid.SetColumnSpan(errorText, 4);
             Grid.SetRow(errorText, 1);
@@ -1070,15 +1069,9 @@ public partial class MainWindow : AppWindow
     private async void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
         var hasQuery = !string.IsNullOrWhiteSpace(SearchBox.Text);
-        SearchHost.Classes.Set("has-query", hasQuery);
         SearchClearBtn.IsVisible = hasQuery;
         if (!hasQuery && _vm?.FileList.IsSearchMode == true)
             await RestoreSearchOriginAsync();
-    }
-
-    private void RevealSearch(object? sender, RoutedEventArgs e)
-    {
-        SearchBox.Focus();
     }
 
     private async void ClearSearch(object? sender, RoutedEventArgs e)

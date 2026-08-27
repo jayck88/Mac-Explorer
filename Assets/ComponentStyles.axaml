@@ -25,35 +25,40 @@
         </ControlTheme>
     </Styles.Resources>
     <Style Selector="Window">
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyUi}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <Style Selector="Button">
         <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Padding" Value="{StaticResource ControlPadding}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
-        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="RenderTransform" Value="scale(1)"/>
         <Setter Property="Transitions">
             <Transitions>
                 <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" Easing="QuadraticEaseOut"/>
-                <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/>
                 <BrushTransition Property="Foreground" Duration="0:0:0.12" Easing="CubicEaseOut"/>
             </Transitions>
         </Setter>
     </Style>
     <Style Selector="Button:pressed">
         <Setter Property="RenderTransform" Value="scale(0.98)"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+    </Style>
+    <Style Selector="Button:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
     <Style Selector="Button:disabled">
-        <Setter Property="Opacity" Value="0.45"/>
+        <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
         <Setter Property="Cursor" Value="Arrow"/>
     </Style>
     <Style Selector="Button:focus-visible">
-        <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
         <Setter Property="BorderThickness" Value="2"/>
     </Style>
 
@@ -64,7 +69,8 @@
         <Setter Property="HorizontalContentAlignment" Value="Center"></Setter>
     </Style>
     <Style Selector="Button.primary:pointerover">
-        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="Button.secondary">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
@@ -75,7 +81,7 @@
         <Setter Property="HorizontalContentAlignment" Value="Center"></Setter>
     </Style>
     <Style Selector="Button.secondary:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
     <Style Selector="Button.ghost">
         <Setter Property="Background" Value="Transparent"/>
@@ -83,7 +89,7 @@
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style Selector="Button.ghost:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
     <Style Selector="Button.info-panel-icon">
         <Setter Property="MinWidth" Value="24"/>
@@ -91,15 +97,15 @@
         <Setter Property="Width" Value="24"/>
         <Setter Property="Height" Value="24"/>
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style Selector="Button.info-panel-icon:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
     <Style Selector="Button.info-panel-icon:pressed">
-        <Setter Property="Background" Value="{DynamicResource ColorBgActive}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
     <Style Selector="Button.info-panel-icon:focus-visible">
         <Setter Property="BorderThickness" Value="0"/>
@@ -112,9 +118,11 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="CornerRadius" Value="999"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
     </Style>
     <Style Selector="Button.system-tag-dot:pointerover">
-        <Setter Property="Opacity" Value="0.86"/>
+        <Setter Property="Opacity" Value="1"/>
+        <Setter Property="RenderTransform" Value="scale(1.08)"/>
     </Style>
     <Style Selector="Button.system-tag-dot:pressed">
         <Setter Property="RenderTransform" Value="scale(0.94)"/>
@@ -124,9 +132,16 @@
     </Style>
     <Style Selector="Button.danger">
         <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.danger:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button:pressed:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
     </Style>
     <Style Selector="Button.icon">
         <Setter Property="MinWidth" Value="32"/>
@@ -136,80 +151,139 @@
     <Style Selector="Button.compact">
         <Setter Property="MinHeight" Value="28"/>
         <Setter Property="Padding" Value="{StaticResource CompactControlPadding}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}"/>
     </Style>
 
     <Style Selector="TextBox, ComboBox, NumericUpDown">
-        <Setter Property="MinHeight" Value="34"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
+        <Setter Property="MinHeight" Value="{DynamicResource TypographyTextControlMinHeight}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Background" Value="{DynamicResource AddressbarBg}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut"/>
-                <BrushTransition Property="BorderBrush" Duration="0:0:0.14" Easing="CubicEaseOut"/>
-            </Transitions>
-        </Setter>
     </Style>
     <Style Selector="TextBox:pointerover, ComboBox:pointerover, NumericUpDown:pointerover">
-        <Setter Property="Background" Value="{DynamicResource AddressbarBgHover}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
     <Style Selector="TextBox:focus, ComboBox:focus, NumericUpDown:focus">
         <Setter Property="Background" Value="{DynamicResource AddressbarBgFocus}"/>
-        <Setter Property="BorderBrush" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
     </Style>
     <Style Selector="TextBox">
-        <Setter Property="SelectionBrush" Value="#22000000"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource InteractionTextHighlightBrush}"/>
         <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
-    <Style Selector="ListBoxItem">
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+    <!-- Match every ComboBox popup to the sidebar action-menu surface. -->
+    <Style Selector="ComboBox /template/ Border#PopupBorder">
+        <Setter Property="Background" Value="{DynamicResource ComboBoxDropDownBackground}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ComboBoxDropDownBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="{DynamicResource ComboBoxDropdownBorderThickness}"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="BoxShadow" Value="{DynamicResource ComboBoxDropDownShadow}"/>
     </Style>
-    <Style Selector="ListBoxItem:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
-    <Style Selector="ListBoxItem:selected">
-        <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+    <Style Selector="ComboBoxItem:selected">
+        <Setter Property="IsVisible" Value="False"/>
     </Style>
 
+    <!-- Shared inline rename editor for file names and sidebar item names. -->
+    <Style Selector="TextBox.inline-rename-editor">
+        <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+        <Setter Property="Padding" Value="5,0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Height" Value="{DynamicResource TypographyInlineEditorHeight}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource InteractionTextHighlightBrush}"/>
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource ColorAccent}"/>
+    </Style>
+    <Style Selector="TextBox.inline-rename-editor:pointerover, TextBox.inline-rename-editor:focus">
+        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="TextBox.inline-rename-editor /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}"/>
+    </Style>
+    <Style Selector="TextBox.inline-rename-editor:pointerover /template/ Border#PART_BorderElement, TextBox.inline-rename-editor:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource ColorBgContent}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InteractionSelectedBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+    </Style>
+    <Style Selector="ListBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="ListBoxItem:pressed:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+    </Style>
+    <Style Selector="ListBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource InteractionSelectedBrush}"/>
+    </Style>
     <Style Selector="CheckBox, RadioButton, ToggleSwitch">
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
+    <Style Selector="ToggleButton">
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+    </Style>
+    <Style Selector="ToggleButton:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton:pressed:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionPressedBrush}"/>
+    </Style>
     <Style Selector="CheckBox:disabled, RadioButton:disabled, ToggleSwitch:disabled">
-        <Setter Property="Opacity" Value="0.45"/>
+        <Setter Property="Opacity" Value="{DynamicResource InteractionDisabledOpacity}"/>
     </Style>
 
     <Style Selector="TabItem">
         <Setter Property="Padding" Value="12,8"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
     <Style Selector="TabItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="TabItem:selected">
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
     </Style>
 
     <Style Selector="MenuItem">
         <Setter Property="MinHeight" Value="30"/>
         <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource InteractionCornerRadius}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="MenuItem:pointerover">
-        <Setter Property="Background" Value="{DynamicResource ColorBgHoverStrong}"/>
+        <Setter Property="Background" Value="{DynamicResource InteractionHoverBrush}"/>
     </Style>
 
     <Style Selector="ContextMenu">
@@ -288,12 +362,12 @@
     </Style>
 
     <Style Selector="TextBlock.heading">
-        <Setter Property="FontSize" Value="{StaticResource FontSizeLg}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle}"/>
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightSemibold}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="TextBlock.body">
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}"/>
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
     <Style Selector="TextBlock.muted">

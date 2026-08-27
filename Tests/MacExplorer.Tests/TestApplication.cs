@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
@@ -9,6 +10,8 @@ public sealed class TestApplication : Application
 {
     public TestApplication()
     {
+        Resources.MergedDictionaries.Add((ResourceDictionary)AvaloniaXamlLoader.Load(
+            new Uri("avares://MacExplorer/Assets/TypographyTokens.axaml")));
         Styles.Add((Styles)AvaloniaXamlLoader.Load(
             new Uri("avares://MacExplorer/Assets/ThemeTokens.axaml")));
         Styles.Add((Styles)AvaloniaXamlLoader.Load(

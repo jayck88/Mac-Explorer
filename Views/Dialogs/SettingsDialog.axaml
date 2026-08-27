@@ -520,10 +520,10 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
                                             <StackPanel>
                                                 <TextBlock Classes="settings-label" Text="透明度"/>
-                                                <TextBlock Classes="settings-description" Text="控制背景材质的显隐强度。"/>
+                                                <TextBlock Classes="settings-description" Text="控制底层原生毛玻璃的透视强度。"/>
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                                <Slider x:Name="VibrancySlider" Width="126" Minimum="0.3" Maximum="1" TickFrequency="0.05" ValueChanged="OnVibrancyAlphaChanged"/>
+                                                <Slider x:Name="VibrancySlider" Width="126" Minimum="0" Maximum="1" TickFrequency="0.05" ValueChanged="OnVibrancyAlphaChanged"/>
                                                 <TextBlock x:Name="VibrancyValueText" Width="38" FontSize="{DynamicResource FontSizeLabel}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </StackPanel>
                                         </Grid>
@@ -531,7 +531,7 @@
                                 </StackPanel>
                             </Border>
                             <Border Classes="settings-note">
-                                <TextBlock Text="毛玻璃设置修改后需重启应用生效" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="毛玻璃设置会立即应用到主窗口。" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource TextMutedBrush}"/>
                             </Border>
                         </StackPanel>
                     </StackPanel>

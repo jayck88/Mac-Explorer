@@ -147,6 +147,8 @@
                     <SolidColorBrush x:Key="GlassSidebarBg" Color="#EAFFFFFF"/>
                     <SolidColorBrush x:Key="GlassToolbarBg" Color="#F2FFFFFF"/>
                     <SolidColorBrush x:Key="GlassContentBg" Color="#F5FFFFFF"/>
+                    <SolidColorBrush x:Key="GlassSurfaceTint" Color="#66FAFAFA"/>
+                    <SolidColorBrush x:Key="GlassElevatedTint" Color="#66FAFAFA"/>
                     <SolidColorBrush x:Key="GlassMenuBg" Color="#F7FFFFFF"/>
                     <SolidColorBrush x:Key="GlassPanelBg" Color="#EEFFFFFF"/>
                     <SolidColorBrush x:Key="GlassEffectBg" Color="#FAFFFFFF"/>
@@ -275,6 +277,8 @@
                     <SolidColorBrush x:Key="GlassSidebarBg" Color="#EA181A1F"/>
                     <SolidColorBrush x:Key="GlassToolbarBg" Color="#F21B1D23"/>
                     <SolidColorBrush x:Key="GlassContentBg" Color="#F21E2026"/>
+                    <SolidColorBrush x:Key="GlassSurfaceTint" Color="#661E2026"/>
+                    <SolidColorBrush x:Key="GlassElevatedTint" Color="#66252830"/>
                     <SolidColorBrush x:Key="GlassMenuBg" Color="#FA252830"/>
                     <SolidColorBrush x:Key="GlassPanelBg" Color="#F022252B"/>
                     <SolidColorBrush x:Key="GlassEffectBg" Color="#FA202329"/>

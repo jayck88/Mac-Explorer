@@ -679,11 +679,6 @@
         <Setter Property="Width" Value="340"/>
     </Style>
 
-    <!-- ═══ Info Panel ═══ -->
-    <Style Selector="Border.info-panel">
-        <Setter Property="Background" Value="{DynamicResource GlassEffectBg}"/>
-    </Style>
-
     <Style Selector="Button.info-tab">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>

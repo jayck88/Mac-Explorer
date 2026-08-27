@@ -211,6 +211,7 @@
                             <SplitView x:Name="InfoDrawer"
                                        DisplayMode="Inline"
                                        PanePlacement="Right"
+                                       PaneBackground="Transparent"
                                        OpenPaneLength="380"
                                        CompactPaneLength="0"
                                        IsPaneOpen="False">

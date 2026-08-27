@@ -115,7 +115,7 @@ public partial class SettingsDialog : DialogWindow
             _ => 1
         };
         VibrancyToggle.IsChecked = _settingsService.Get("vibrancy_enabled", true);
-        VibrancySlider.Value = _settingsService.Get("vibrancy_alpha", 0.85);
+        VibrancySlider.Value = _settingsService.Get("vibrancy_alpha", 0.30);
         VibrancySlider.IsEnabled = VibrancyToggle.IsChecked == true;
         UpdateVibrancyLabel();
 

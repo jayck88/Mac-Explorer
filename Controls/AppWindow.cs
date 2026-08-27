@@ -38,12 +38,14 @@ public class AppWindow : Window
         Focusable = true;
         Background = Brushes.Transparent;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+        TransparencyBackgroundFallback = Brushes.Transparent;
 
         Opened += (_, _) =>
         {
             ApplyNativeWindowChrome();
             UpdateWindowPseudoClasses();
         };
+        Closed += (_, _) => MacWindowChrome.RemoveVibrancy(this);
         Activated += (_, _) => UpdateWindowPseudoClasses();
         Deactivated += (_, _) => UpdateWindowPseudoClasses();
         KeyDown += OnWindowKeyDown;

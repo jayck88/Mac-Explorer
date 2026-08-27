@@ -8,9 +8,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MacExplorer.Controls;
+using MacExplorer.Platforms.MacOS;
 using MacExplorer.ViewModels;
 using MacExplorer.Views.Dialogs;
 using MacExplorer.Models;
@@ -21,6 +23,26 @@ namespace MacExplorer.Views;
 
 public partial class MainWindow : AppWindow
 {
+    // The native visual effect is the continuous window-level material. Primary content
+    // surfaces stay transparent; the window frame receives its own translucent tint below.
+    private static readonly string[] VibrancyTransparentResourceKeys =
+    [
+        "WindowBackgroundBrush",
+        "SurfaceBackgroundBrush",
+        "ColorBgPrimary",
+        "ColorBgSidebar",
+        "ColorBgToolbar",
+        "ColorBgContent"
+    ];
+
+    // Only cards receive the themed translucent tint; the window frame remains clear
+    // so the native material can show through.
+    private static readonly (string SurfaceKey, string TintKey)[] VibrancyTintResourceKeys =
+    [
+        ("SurfaceBrush", "GlassSurfaceTint"),
+        ("SurfaceElevatedBrush", "GlassElevatedTint")
+    ];
+
     private bool _isRestoringSearch;
     private SettingsDialog? _settingsDialog;
     private MainWindowViewModel? _vm;
@@ -64,6 +86,7 @@ public partial class MainWindow : AppWindow
         Opened += OnOpened;
         Activated += OnActivated;
         Closed += OnClosed;
+        Application.Current?.ActualThemeVariantChanged += OnActualThemeVariantChanged;
         _taskManager.TasksChanged += OnTasksChanged;
         ApplyAppearanceSettings();
         AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -244,9 +267,52 @@ public partial class MainWindow : AppWindow
 
     public void ApplyAppearanceSettings()
     {
+        var settings = App.Services.GetRequiredService<ISettingsService>();
+        var enabled = settings.Get("vibrancy_enabled", true);
+        var opacity = Math.Clamp(settings.Get("vibrancy_alpha", 0.30), 0, 1);
+
+        ApplyVibrancySurfaceResources(enabled);
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+        TransparencyBackgroundFallback = Brushes.Transparent;
         Background = Brushes.Transparent;
-        ApplyNativeWindowChrome();
+        MacWindowChrome.SetVibrancy(this, enabled, opacity);
+    }
+
+    private void ApplyVibrancySurfaceResources(bool enabled)
+    {
+        foreach (var resourceKey in VibrancyTransparentResourceKeys)
+        {
+            if (!enabled)
+            {
+                Resources.Remove(resourceKey);
+                continue;
+            }
+
+            Resources[resourceKey] = Brushes.Transparent;
+        }
+
+        foreach (var (surfaceKey, tintKey) in VibrancyTintResourceKeys)
+        {
+            if (!enabled)
+            {
+                Resources.Remove(surfaceKey);
+                continue;
+            }
+
+            Resources[surfaceKey] = GetThemeBrush(tintKey);
+        }
+    }
+
+    private static SolidColorBrush GetThemeBrush(string resourceKey)
+    {
+        var application = Application.Current
+            ?? throw new InvalidOperationException("Application resources are unavailable while applying vibrancy.");
+        var theme = application.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
+
+        if (application.TryGetResource(resourceKey, theme, out var value) && value is ISolidColorBrush brush)
+            return new SolidColorBrush(brush.Color);
+
+        throw new InvalidOperationException($"Missing vibrancy tint resource '{resourceKey}'.");
     }
 
     public MainWindow(MainWindowViewModel viewModel) : this()
@@ -384,6 +450,7 @@ public partial class MainWindow : AppWindow
 
     private async void OnOpened(object? sender, EventArgs e)
     {
+        ApplyAppearanceSettings();
         if (_initialized || _vm == null) return;
         _initialized = true;
 
@@ -408,6 +475,8 @@ public partial class MainWindow : AppWindow
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        if (Application.Current != null)
+            Application.Current.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _previewAnimationCts?.Cancel();
         _taskPanelAnimCts?.Cancel();
         _autoCloseTimerCts?.Cancel();
@@ -420,6 +489,8 @@ public partial class MainWindow : AppWindow
         _scope?.Dispose();
         _scope = null;
     }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e) => ApplyAppearanceSettings();
 
     private async Task SyncDialogsAsync()
     {

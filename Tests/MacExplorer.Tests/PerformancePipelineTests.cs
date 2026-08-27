@@ -8,6 +8,19 @@ namespace MacExplorer.Tests;
 public sealed class PerformancePipelineTests
 {
     [Fact]
+    public void FileSystemEntry_IconDisplayNamePreservesTheNameAndExtensionEnds()
+    {
+        var entry = new FileSystemEntry
+        {
+            Name = "a-very-long-file-name.csproj"
+        };
+
+        Assert.Equal("a-very…csproj", entry.IconDisplayName);
+        Assert.Equal("a-very-long-file-name.csproj", entry.DisplayName);
+        Assert.Equal("a-very-long-file-name.csproj", entry.Name);
+    }
+
+    [Fact]
     public void FileSystemEntry_VisualStateRaisesOnlyItemNotifications()
     {
         var entry = new FileSystemEntry { FullPath = "/tmp/photo.png", Name = "photo.png" };

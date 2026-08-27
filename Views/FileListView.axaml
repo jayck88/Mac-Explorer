@@ -182,8 +182,8 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
-                    <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Text="{Binding DisplayName}"
-                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                    <TextBlock x:Name="EntryNameText" Classes="entry-name-text" Text="{Binding IconDisplayName}"
+                               TextWrapping="Wrap"
                                FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" Margin="0,6,0,0"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="{Binding VirtualCountText}" IsVisible="{Binding IsVirtual}"

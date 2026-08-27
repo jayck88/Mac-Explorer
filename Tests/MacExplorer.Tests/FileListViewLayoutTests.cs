@@ -17,6 +17,26 @@ namespace MacExplorer.Tests;
 public sealed class FileListViewLayoutTests
 {
     [AvaloniaFact]
+    public void GridEntryDisplaysTheMiddleAbbreviatedFileName()
+    {
+        var entry = File("a-very-long-file-name.csproj");
+        var view = new FileListView();
+        var template = Assert.IsAssignableFrom<IDataTemplate>(view.Resources["GridEntryTemplate"]);
+        var card = Assert.IsAssignableFrom<Control>(template.Build(entry));
+        card.DataContext = entry;
+        var window = new Window { Width = 300, Height = 240, Content = card };
+
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var fileName = card.GetVisualDescendants().OfType<TextBlock>()
+            .Single(text => text.Classes.Contains("entry-name-text"));
+        Assert.Equal("a-very…csproj", fileName.Text);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void RealizedAndNewRowsUseTheSameEffectiveWidthsAsHeader()
     {
         var view = new FileListView();

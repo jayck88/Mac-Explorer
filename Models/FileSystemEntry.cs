@@ -5,6 +5,8 @@ namespace MacExplorer.Models;
 
 public class FileSystemEntry : INotifyPropertyChanged
 {
+    private const int IconDisplayNameMaxLength = 13;
+
     private string? _iconUrl;
     private string? _thumbnailUrl;
     private bool _isCut;
@@ -54,6 +56,7 @@ public class FileSystemEntry : INotifyPropertyChanged
     public bool HasGitChanges { get; init; }
 
     public string DisplayName => IconKey == "app-bundle" ? Path.GetFileNameWithoutExtension(Name) : Name;
+    public string IconDisplayName => AbbreviateForIconView(DisplayName);
     public string FormattedSize => IsVirtual ? $"{VirtualItemCount} 项" : FormatSize(Size, IsDirectory);
     public string KindText => IsVirtual ? VirtualFolderType switch
     {
@@ -116,5 +119,19 @@ public class FileSystemEntry : INotifyPropertyChanged
             size /= 1024;
         }
         return $"{size:0.##} {units[order]}";
+    }
+
+    private static string AbbreviateForIconView(string name)
+    {
+        if (name.Length <= IconDisplayNameMaxLength) return name;
+
+        var extensionStart = name.LastIndexOf('.');
+        var extensionLength = name.Length - extensionStart - 1;
+        var suffixLength = extensionStart > 0 && extensionLength is > 0 and <= 6
+            ? extensionLength
+            : (IconDisplayNameMaxLength - 1) / 2;
+        var prefixLength = IconDisplayNameMaxLength - suffixLength - 1;
+
+        return $"{name[..prefixLength]}…{name[^suffixLength..]}";
     }
 }

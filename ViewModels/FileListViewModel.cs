@@ -3059,7 +3059,8 @@ public partial class FileListViewModel : ObservableObject, IDisposable
                 _navigation.CurrentPath,
                 IsCollectionView,
                 _navigation.CurrentCollectionId,
-                msg => StatusText = msg
+                msg => StatusText = msg,
+                this
             );
 
             ScrollBehaviorAfterLoad = ScrollMode.PreservePosition;

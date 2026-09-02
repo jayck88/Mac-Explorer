@@ -10,41 +10,36 @@ public class MacThumbnailService : IThumbnailService
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Keep this list deliberately conservative. These are formats that
+        // macOS can resize reliably and quickly with sips.
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp",
-        ".heic", ".heif", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".orf",
-        ".rw2", ".pef", ".raw", ".avif", ".jxl", ".jp2", ".j2k", ".jpf",
-        ".ppm", ".pgm", ".pbm", ".tga", ".dds", ".ico", ".icns"
+        ".heic", ".heif", ".avif", ".ico", ".icns"
     };
     private static readonly HashSet<string> QuickLookDocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Office, iWork and common publication formats. Availability still follows
-        // the Quick Look generators installed on the user's Mac.
-        ".pdf", ".doc", ".docx", ".docm", ".dot", ".dotx", ".xls", ".xlsx", ".xlsm", ".xlt", ".xltx",
-        ".ppt", ".pptx", ".pptm", ".pps", ".ppsx", ".pot", ".potx", ".pages", ".numbers", ".key",
-        ".rtf", ".odt", ".ods", ".odp", ".epub", ".ibooks", ".pub", ".vsd", ".vsdx", ".one", ".onepkg",
-        ".psd", ".psb",
-        // Text, markup, subtitles, configuration and source files can use a
-        // Quick Look text generator when one is available.
-        ".txt", ".text", ".md", ".markdown", ".csv", ".tsv", ".log", ".json", ".jsonl", ".xml",
-        ".yaml", ".yml", ".toml", ".ini", ".conf", ".config", ".properties", ".env", ".html", ".htm",
-        ".mht", ".mhtml", ".webarchive", ".css", ".scss", ".less", ".rst", ".tex", ".adoc", ".asciidoc",
-        ".org", ".nfo", ".srt", ".vtt", ".ass", ".ssa", ".lrc", ".cue", ".js", ".jsx", ".ts", ".tsx",
-        ".swift", ".c", ".h", ".cpp", ".hpp", ".cs", ".fs", ".vb", ".java", ".kt", ".kts", ".py", ".rb",
-        ".php", ".sh", ".zsh", ".bash", ".fish", ".ps1", ".sql", ".go", ".rs", ".lua", ".r", ".scala",
-        ".groovy", ".dart", ".ex", ".exs", ".erl", ".pl", ".pm", ".vim", ".asm", ".s", ".f", ".f90", ".pas",
-        ".d", ".zig", ".sol", ".vue", ".svelte", ".astro", ".ipynb", ".graphql", ".gql",
-        // Audio/video thumbnails are delegated to macOS Quick Look. A missing
-        // generator simply falls back to the existing generic file presentation.
-        ".mp3", ".m4a", ".aac", ".aiff", ".aif", ".wav", ".flac", ".ogg", ".opus", ".wma", ".amr",
-        ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm", ".wmv", ".flv",
-        ".3gp", ".mpeg", ".mpg", ".mts", ".m2ts", ".mxf", ".mpv", ".ogv", ".dv", ".asf", ".rm", ".rmvb",
-        ".vob", ".ts", ".m2v", ".dmg", ".iso"
+        // Documents, spreadsheets, presentations and iWork packages.
+        ".pdf", ".doc", ".docx", ".rtf", ".rtfd", ".odt", ".epub", ".pages",
+        ".xls", ".xlsx", ".csv", ".tsv", ".ods", ".numbers",
+        ".ppt", ".pptx", ".odp", ".key", ".psd", ".psb",
+        // Common web, markup and text formats. Code files themselves are
+        // rendered directly as text by Super Preview rather than sent here.
+        ".txt", ".text", ".md", ".markdown", ".html", ".htm", ".webarchive", ".css",
+        ".json", ".xml", ".yaml", ".yml", ".toml", ".log",
+        // Common media types. They still have a strict timeout and fall back
+        // to the system Quick Look button if the installed generator declines.
+        ".mp3", ".m4a", ".aac", ".wav", ".aiff", ".flac",
+        ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"
     };
 
     private const int MaxMemoryEntries = 300;
     private const long MaxMemoryBytes = 64L * 1024 * 1024;
     private const long DefaultMaxDiskBytes = 256L * 1024 * 1024;
     private const double DefaultDiskTargetRatio = 0.8;
+    // qlmanage can hang indefinitely on certain mounted disk images. Every
+    // external thumbnail generator must therefore have a bounded lifetime so
+    // one bad file cannot hold the single generation gate forever.
+    private static readonly TimeSpan SipsTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan QuickLookTimeout = TimeSpan.FromSeconds(12);
     private readonly ConcurrentDictionary<string, byte[]> _memoryCache = new();
     private readonly ConcurrentQueue<string> _cacheOrder = new();
     private readonly SemaphoreSlim _generationGate = new(1);
@@ -95,7 +90,11 @@ public class MacThumbnailService : IThumbnailService
         CancellationToken ct = default)
     {
         var extension = Path.GetExtension(filePath);
-        if (!File.Exists(filePath) || !SupportsThumbnailExtension(extension))
+        // iWork, RTFD and similar document bundles are directories. Quick
+        // Look supports them, so do not reject them solely because File.Exists
+        // is false.
+        if ((!File.Exists(filePath) && !Directory.Exists(filePath))
+            || !SupportsThumbnailExtension(extension))
             return null;
 
         var cacheKey = $"{filePath}:{File.GetLastWriteTimeUtc(filePath).Ticks}:{maxPixelSize}";
@@ -345,20 +344,25 @@ public class MacThumbnailService : IThumbnailService
             foreach (var argument in new[] { "-t", "-s", Math.Max(128, maxPixelSize).ToString(), "-o", outputDirectory, sourcePath })
                 startInfo.ArgumentList.Add(argument);
 
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(QuickLookTimeout);
+            var timeoutToken = timeoutCts.Token;
             using var process = Process.Start(startInfo);
             if (process == null) return null;
             TrySetBelowNormalPriority(process);
-            var stdout = process.StandardOutput.ReadToEndAsync(ct);
-            var stderr = process.StandardError.ReadToEndAsync(ct);
+            var stdout = process.StandardOutput.ReadToEndAsync(timeoutToken);
+            var stderr = process.StandardError.ReadToEndAsync(timeoutToken);
             try
             {
-                await process.WaitForExitAsync(ct);
+                await process.WaitForExitAsync(timeoutToken);
                 await Task.WhenAll(stdout, stderr);
             }
             catch (OperationCanceledException)
             {
                 TryKillProcess(process);
-                throw;
+                if (ct.IsCancellationRequested)
+                    throw;
+                return null;
             }
 
             if (process.ExitCode != 0) return null;
@@ -418,12 +422,15 @@ public class MacThumbnailService : IThumbnailService
             startInfo.ArgumentList.Add(sourcePath);
             startInfo.ArgumentList.Add(generatedPath);
             startInfo.ArgumentList.Add(Math.Max(128, maxPixelSize).ToString());
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(QuickLookTimeout);
+            var timeoutToken = timeoutCts.Token;
             process = Process.Start(startInfo);
             if (process == null) return null;
             TrySetBelowNormalPriority(process);
-            var stdout = process.StandardOutput.ReadToEndAsync(ct);
-            var stderr = process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
+            var stdout = process.StandardOutput.ReadToEndAsync(timeoutToken);
+            var stderr = process.StandardError.ReadToEndAsync(timeoutToken);
+            await process.WaitForExitAsync(timeoutToken);
             await Task.WhenAll(stdout, stderr);
             if (process.ExitCode != 0 || !File.Exists(generatedPath)) return null;
 
@@ -435,7 +442,9 @@ public class MacThumbnailService : IThumbnailService
         catch (OperationCanceledException)
         {
             if (process != null) TryKillProcess(process);
-            throw;
+            if (ct.IsCancellationRequested)
+                throw;
+            return null;
         }
         catch
         {
@@ -485,12 +494,15 @@ public class MacThumbnailService : IThumbnailService
         Process? process = null;
         try
         {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(SipsTimeout);
+            var timeoutToken = timeoutCts.Token;
             process = Process.Start(CreateSipsStartInfo(arguments));
             if (process == null) return false;
             TrySetBelowNormalPriority(process);
-            var stdout = process.StandardOutput.ReadToEndAsync(ct);
-            var stderr = process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
+            var stdout = process.StandardOutput.ReadToEndAsync(timeoutToken);
+            var stderr = process.StandardError.ReadToEndAsync(timeoutToken);
+            await process.WaitForExitAsync(timeoutToken);
             await Task.WhenAll(stdout, stderr);
             return process.ExitCode == 0;
         }
@@ -498,7 +510,9 @@ public class MacThumbnailService : IThumbnailService
         {
             if (process != null)
                 TryKillProcess(process);
-            throw;
+            if (ct.IsCancellationRequested)
+                throw;
+            return false;
         }
         catch
         {

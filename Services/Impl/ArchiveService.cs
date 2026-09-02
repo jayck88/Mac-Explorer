@@ -16,7 +16,11 @@ public class ArchiveService : IArchiveService
         // validates the actual file contents before the preview exposes it.
         ".zip", ".zipx", ".cbz", ".jar", ".war", ".ear", ".apk", ".xpi", ".vsix",
         ".rar", ".7z", ".tar", ".gz", ".gzip", ".tgz", ".taz", ".bz2", ".bzip2",
-        ".tbz", ".tbz2", ".tb2", ".xz", ".txz", ".zst", ".zstd", ".tzst"
+        ".tbz", ".tbz2", ".tb2", ".xz", ".txz", ".zst", ".zstd", ".tzst",
+        // Other common archive/container names. SharpCompress validates the
+        // actual bytes before exposing their contents, so unsupported or
+        // damaged files safely display a read failure instead of being opened.
+        ".lzma", ".lz4", ".lzh", ".lha", ".ar", ".cpio", ".cab", ".xar", ".warc", ".iso"
     };
 
     public bool IsArchiveFile(string filePath)

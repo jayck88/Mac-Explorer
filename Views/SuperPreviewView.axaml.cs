@@ -194,8 +194,14 @@ public partial class SuperPreviewView : UserControl
                 var match = preferred == null
                     ? null
                     : _entries.FirstOrDefault(e => string.Equals(e.FullPath, preferred.FullPath, StringComparison.Ordinal));
-                ItemsList.SelectedItem = match;
-                _selectedEntry = match;
+                // Folder/archive previews should immediately show useful file
+                // content on the right. Without this fallback only a folder
+                // summary was shown until the user clicked an item manually.
+                var initialSelection = match
+                    ?? _entries.FirstOrDefault(e => !e.IsDirectory)
+                    ?? _entries.FirstOrDefault();
+                ItemsList.SelectedItem = initialSelection;
+                _selectedEntry = initialSelection;
             }
             finally
             {

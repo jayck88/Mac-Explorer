@@ -61,7 +61,11 @@ public class MacSearchService : ISearchService, IGlobalSearchService
         string pattern,
         int maxResults = 500,
         CancellationToken cancellationToken = default) =>
-        SearchAsyncCore(directory, pattern, maxResults, skipRecursiveFallback: true, cancellationToken: cancellationToken);
+        // A global search must still be useful before the local index has seen a
+        // directory. Its caller supplies a bounded, user-accessible root, so a
+        // fallback scan is safe and avoids reporting an empty result set merely
+        // because the index is new or incomplete.
+        SearchAsyncCore(directory, pattern, maxResults, skipRecursiveFallback: false, cancellationToken: cancellationToken);
 
     private async IAsyncEnumerable<FileSystemEntry> SearchAsyncCore(
         string directory,
@@ -153,10 +157,11 @@ public class MacSearchService : ISearchService, IGlobalSearchService
             }
         }
 
-        // Fallback: recursive file system search only when the index could not
-        // be queried. Recursing the whole startup disk after every keystroke
-        // makes global search feel slow and duplicates the indexed results.
-        if (indexSearchSucceeded || skipRecursiveFallback)
+        // The index is intentionally populated lazily while folders are opened.
+        // When it has no match yet, fall back to the caller's bounded search root
+        // so global search works immediately after installation. Once indexed
+        // matches were returned, do not scan again and duplicate that work.
+        if ((indexSearchSucceeded && yieldedCount > 0) || skipRecursiveFallback)
             yield break;
 
         await foreach (var entry in SearchFileSystemRecursiveAsync(

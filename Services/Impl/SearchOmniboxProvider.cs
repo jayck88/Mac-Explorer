@@ -74,7 +74,10 @@ public class SearchOmniboxProvider : IOmniboxProvider
             GlobalSearchScope.CurrentFolder => viewModel.CurrentPath,
             GlobalSearchScope.UserFolder => viewModel.HomeDirectory,
             GlobalSearchScope.CustomFolders => null,
-            _ => Path.GetPathRoot(viewModel.CurrentPath)
+            // "This Mac" is index-wide; when the index has not yet reached a
+            // folder, use the user's home as the bounded filesystem fallback.
+            // Scanning '/' here can make every keystroke walk system locations.
+            _ => viewModel.HomeDirectory
         };
 
         if (scope == GlobalSearchScope.CustomFolders)
